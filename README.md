@@ -3,7 +3,8 @@ __The Gamma distributed-lag model with multiple explanatory variables__
 
 `gammadlm` is a R package implementing functionalities for maximum likelihood estimation and inference for the Gamma distributed-lag model with multiple explanatory variables.
 The reference paper is:
-A. Magrini. _A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables_. Under review.
+
+A. Magrini. A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. _Under review_.
 
 
 R (The R Project for Statistical Computing) needs to be installed on your system in order
@@ -33,8 +34,7 @@ Estimation with fixed values of delta and lambda parameters: 1-step OLS
 ```
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)
-mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=dataLR,
-  control=list(delta.lim=dval, lambda.lim=lval))
+mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=dataLR, control=list(delta.lim=dval, lambda.lim=lval))
 summary(mod)  ## summary of estimation
 ```
 Estimation through hill climbing algorithm
