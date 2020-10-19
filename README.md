@@ -30,14 +30,14 @@ Trasform the variables in log return to achieve stationarity
 ```
 dataLR <- tsDiff(time.name="Date", data=USstock, ndiff=1, log=TRUE)
 ```
-Estimation with fixed values of delta and lambda parameters: 1-step OLS
+Estimation with fixed values of delta and lambda parameters (1 step of ordinary least squares):
 ```
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)
 mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=dataLR, control=list(delta.lim=dval, lambda.lim=lval))
 summary(mod)  ## summary of estimation
 ```
-Estimation through hill climbing algorithm
+Estimation with unknown delta and lambda parameters (hill climbing algorithm):
 ```
 # * no constraints
 set.seed(100)
@@ -56,16 +56,16 @@ set.seed(100)
 m2 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=dataLR, control=list(peak.lim=pklim, length.lim=lenlim, nstart=100))
 summary(m2)
 ```
-Graphical model diagnostics
+Graphical model diagnostics:
 ```
 residuals(mod, plot=T)
 ```
-Estimated dynamic coefficients
+Estimated dynamic coefficients:
 ```
 lagCoef(mod)
 lagCoef(mod, cumul=T)  ## cumulative coefficients
 ```
-Graphic of the estimated lag distributions
+Graphic of the estimated lag distributions:
 ```
 plot(mod)
 ```
