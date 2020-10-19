@@ -8,7 +8,7 @@ A. Magrini. A hill climbing algorithm for maximum likelihood estimation of the G
 
 
 R (The R Project for Statistical Computing) needs to be installed on your system in order
-to use the `CobbDouglas` package. R can be downloaded from https://www.r-project.org/.
+to use the `gammadlm` package. R can be downloaded from https://www.r-project.org/.
 
 To install the `CobbDouglas` package, open the console of R and type:
 ```
