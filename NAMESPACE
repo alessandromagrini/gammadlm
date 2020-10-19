@@ -1,0 +1,13 @@
+export(gammaWeights, gammaKernel, gammaQuantile, adfTest, tsDiff, gammadlm, lagCoef)
+
+S3method(vcov, gammadlm)
+S3method(summary, gammadlm)
+S3method(plot, gammadlm)
+S3method(residuals, gammadlm)
+
+importFrom("grDevices", "adjustcolor", "n2mfrow")
+importFrom("graphics", "abline", "box", "grid", "legend", "lines", "par", "polygon")
+importFrom("stats", "acf", "approx", "embed", "extractAIC", "formula", "lm",
+           "model.matrix", "na.omit", "pf", "pt", "qnorm", "qqline", "qqnorm",
+           "residuals.lm", "spline", "summary.lm", "vcov")
+importFrom("utils", "flush.console")
