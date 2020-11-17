@@ -3,7 +3,7 @@ Type: Package
 Title: The Gamma Distributed-Lag Model with Multiple Explanatory
         Variables
 Version: 0.0
-Date: 2020-10-19
+Date: 2020-11-17
 Author: Alessandro Magrini
 Maintainer: Alessandro Magrini <alessandro.magrini@unifi.it>
 Description: Maximum likelihood estimation and inference for the Gamma distributed-lag model with multiple explanatory variables.
@@ -11,4 +11,4 @@ Depends: R (>= 3.5.0)
 Imports: graphics, stats
 License: GPL-2
 NeedsCompilation: no
-Packaged: 2020-10-19 13:35:53 UTC; Alessandro
+Packaged: 2020-11-17 17:40:25 UTC; Alessandro

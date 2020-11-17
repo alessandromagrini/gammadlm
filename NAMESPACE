@@ -9,5 +9,5 @@ importFrom("grDevices", "adjustcolor", "n2mfrow")
 importFrom("graphics", "abline", "box", "grid", "legend", "lines", "par", "polygon")
 importFrom("stats", "acf", "approx", "embed", "extractAIC", "formula", "lm",
            "model.matrix", "na.omit", "pf", "pt", "qnorm", "qqline", "qqnorm",
-           "residuals.lm", "spline", "summary.lm", "vcov")
+           "residuals.lm", "spline", "summary.lm", "vcov", "ar")
 importFrom("utils", "flush.console")

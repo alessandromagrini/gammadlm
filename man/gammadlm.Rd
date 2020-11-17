@@ -39,7 +39,7 @@
 \details{
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.
 Also, let \eqn{y_t} and \eqn{x_{j,t}} be, respectively, the value of \eqn{Y} and of \eqn{X_j} (\eqn{j=1,\ldots,J}) at time \eqn{t}.
-The Gamma distributed-lag model explaining \eqn{Y} from \eqn{X_1,\ldots,X_J} is defined as:
+Under the assumption that the time series of \eqn{Y} and of \eqn{X_1,\ldots,X_J} are all stationary, the Gamma distributed-lag model explaining \eqn{Y} from \eqn{X_1,\ldots,X_J} is defined as:
 \deqn{y_t = \alpha+\sum_{j=1}^J\theta_j\sum_{k=0}^\infty w_{j,k}x_{j,t-k}+\varepsilon_t}
 \deqn{w_{j,k} = \frac{(k+1-\eta_j)^{\frac{\delta_j}{1-\delta_j}}\lambda_j^{k-\eta_j}}{\sum_{l=0}^\infty(l+1-\eta_j)^{\frac{\delta_j}{1-\delta_j}}\lambda_j^{l-\eta_j}}}
 where:
@@ -52,11 +52,25 @@ where:
 All S3 methods for class \code{lm} are also available for class \code{gammadlm}.
 Furthermore, method \link{lagCoef} can be used to obtain dynamic coefficients, method \code{plot} to obtain graphics for the estimated lag distributions, and method \code{residuals} to obtain graphical model diagnostics.
 }
+\note{
+Stationarity of the time series is a basic assumption of the model.
+Function \link{adfTest} performs the Augmented Dickey-Fuller test and can be used to test the presence of a unit root in each time series.
+Stationarity is stated in the case of a significant result of the test, otherwise differencing is required to achieve stationarity.
+Function \link{tsDiff} can be used to apply differencing to non-stationary time series.
+
+Function \link{gammadlm} checks stationarity of the residuals and returns a warning in case of non-stationarity.
+However, the user is strongly recommended to check stationarity of the time series autonomously before running function \link{gammadlm}.
+
+When the \code{summary} method is called on an object of class \code{gammadlm}, the order of auto-correlation of the residuals is estimated based on the Bayesian Information Criterion. If it is greater than 0, then the Heteroscedasticity and Autocorrelation Consistent (HAC, Newey & West, 1987) estimator of the covariance matrix of least squares estimates is applied to get robust standard errors.
+The same holds for the \code{confint} method.
+}
 \author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
 A. Magrini. A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Under review}.
 
 J. M. Alston, M. A. Andersen, J. S. James, P. G. Pardey (2011). The economic returns to U.S. public agricultural research. \emph{American Journal of Agricultural Economics}, 93(5), 1257-1277.
+
+W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }
 \seealso{\link{lagCoef}; \link{plot.gammadlm}; \link{residuals.gammadlm}.}
 \examples{
@@ -73,12 +87,12 @@ summary(mod)  ## summary of estimation
 
 ## estimation through hill climbing algorithm: NOT RUN
 ##
-## * no constraints
+## * no constraints with 50 random restarts (by default)
 #set.seed(100)
 #m1 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR)
 #summary(m1)
 ##
-## * same but with 100 random restarts
+## * no contraints with 100 random restarts
 #set.seed(100)
 #m1a <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
 #  control=list(nstart=100))

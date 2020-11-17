@@ -132,13 +132,16 @@ gammaQuantile <- function(prob, par, offset=0) {
   qcalc <- function(p) {
     lval <- -1  ## <----- migliorare efficienza
     swei <- gam_const(par=par)
+    wei_old <- 0
     wei <- gam_wei(lval, par=par, offset=0)/swei
     while(wei<p) {
       lval <- lval+1
       w0 <- gam_wei(lval, par=par, offset=0)/swei
+      wei_old <- wei
       wei <- wei+w0
       }
-    lval+offset
+    #lval+offset
+    approx(c(wei_old,wei),c(lval-1,lval),xout=p)$y+offset
     }
   res <- sapply(prob, qcalc)
   names(res) <- paste(round(prob*100,3),"%",sep="")
@@ -623,7 +626,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, time.name=NULL, data, offset
     }
   #if(!is.null(modOK)) {  ## <----- fitted values aggiustati per l'autocorrelazione
   #  resid <- modOK$residuals
-  #  arRes <- arTest(resid)
+  #  arRes <- ar(resid)
   #  if(arRes$order>0) {
   #    epsFit <- unconsKernel(resid,arRes$order,T)%*%c(0,arRes$ar)
   #    modOK$adj.fitted.values <- modOK$fitted.values-c(epsFit)
@@ -724,7 +727,7 @@ whitest <- function(Xmat, resid, max.degree) {
 hacCalc <- function(Xmat, resid, uS=NULL) {
   max.degree <- 3  ## <----- max degree for white test
   n <- length(resid)
-  max.lag <- arTest(resid)$order
+  max.lag <- ar(resid)$order
   whiTest <- whitest(Xmat=Xmat, resid=resid, max.degree=max.degree)
   p <- ncol(Xmat)
   if(is.null(uS)) uS <- solve(t(Xmat)%*%Xmat)
