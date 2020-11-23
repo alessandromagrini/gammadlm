@@ -4,7 +4,7 @@
 \description{Obtain the graphic for the estimated lag distribution of each explanatory variable with lags.}
 \usage{
 \method{plot}{gammadlm}(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile=0.999,
-  xlim=NULL, ylim=NULL, add.legend=TRUE, cex.legend=1, grid.length=100,
+  xlim=NULL, ylim=NULL, add.legend=TRUE, cex.legend=1, digits=4, grid.length=100,
   main=NULL, ylab=NULL, xlab=NULL, ...)
 }
 \arguments{
@@ -17,6 +17,7 @@
   \item{ylim}{Numerical vector of length 2 indicating the range of the y-axis, which is applied to all graphics (optional).}
   \item{add.legend}{Logical value indicating whether a legend with numerical information should be added to the graphics. Default is \code{TRUE}.}
   \item{cex.legend}{Size of the legend. Default is 1.}
+  \item{digits}{Integer non-negative value indicating the number of decimal places to be used in the legend. Default is 4. Ignored if \code{add.legend}=\code{FALSE}.}
   \item{grid.length}{Numerical value no less than 100 indicating the resolution of the interpolation. Default is 100.}
   \item{main}{Vector of characters including the title for each graphic. If \code{NULL} (the default), the name of the explanatory variables is used.}
   \item{ylab}{Text for y-axis, which is applied to all graphics (optional).}

@@ -819,7 +819,7 @@ lagCoef <- function(x, cumulative=FALSE, max.lag=NULL, max.quantile=0.999) {
 
 # plot method for class 'gammadlm'
 plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile=0.999,
-  xlim=NULL, ylim=NULL, add.legend=TRUE, cex.legend=1, grid.length=100, main=NULL, ylab=NULL, xlab=NULL, ...) {
+  xlim=NULL, ylim=NULL, add.legend=TRUE, cex.legend=1, digits=4, grid.length=100, main=NULL, ylab=NULL, xlab=NULL, ...) {
   #
   if(length(conf)>1) conf <- conf[1]
   if(!is.numeric(conf) || (conf<=0 | conf>=1)) stop("Argument 'conf' must be a value >0 and <1")
@@ -883,10 +883,10 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
       bcumco <- cbind(bcum,bcum-tquan*bcum_se,bcum+tquan*bcum_se)
       if(is.null(cex.legend)) cex.legend <- 1
       bcumcoOK <- signif(bcumco)
-      legtxt <- paste("Significant lags: ",offs," to ",laglen,"\n",
+      legtxt <- paste("Significant lags: ",floor(offs)," to ",ceiling(laglen),"\n",
                       #", peak at ",ifelse(gpar[2]>0,round(gpar[1]/(gpar[1]-1)/log(gpar[2])-1,1),0)+offs,"\n",
-                      "Cumulative coefficient: ",bcumcoOK[1],"\n",
-                      "   ",100*conf,"% CI: (",bcumcoOK[2],", ",bcumcoOK[3],")",sep="")
+                      "Cumulative coefficient: ",round(bcumcoOK[1],digits),"\n",
+                      "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
       legend("topright",legend=legtxt,cex=cex.legend,bty="n")
       }
     box()
