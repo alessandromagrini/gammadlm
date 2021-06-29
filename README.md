@@ -39,7 +39,8 @@ Estimation with fixed values of delta and lambda parameters (1 step of ordinary 
 ```
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)
-mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR, control=list(delta.lim=dval, lambda.lim=lval))
+mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
+                control=list(delta.lim=dval, lambda.lim=lval))
 summary(mod)  ## summary of estimation
 ```
 Estimation with unknown delta and lambda parameters (hill climbing algorithm):
