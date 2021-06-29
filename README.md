@@ -26,7 +26,7 @@ Load the `gammadlm` package
 ```
 library(gammadlm)
 ```
-Load Bitcoin and US stock market data
+Load data on Bitcoin and US stock market price
 ```
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]  ## select data from April 2020 onwards
