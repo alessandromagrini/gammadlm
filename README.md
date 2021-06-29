@@ -22,10 +22,14 @@ For any request or feedback, please write to <alessandro.magrini@unifi.it> (Ales
 Below, you find some examples of use of the package.
 _________________________________________________________________
 
+Load the `gammadlm` package
+```
+library(gammadlm)
+```
 Load Bitcoin and US stock market data
 ```
 data(USstock)
-mydata <- USstock[which(USstock$Date>="2020-04-01"),]  ## select data from April onwards
+mydata <- USstock[which(USstock$Date>="2020-04-01"),]  ## select data from April 2020 onwards
 ```
 Trasform the variables in log return to achieve weak stationarity
 ```
@@ -54,7 +58,8 @@ summary(m1a)
 pklim <- list(DJA=c(1,Inf),IXIC=c(1,Inf),GSPC=c(1,Inf))
 lenlim <- list(DJA=c(3,10),IXIC=c(3,10),GSPC=c(3,10))
 set.seed(100)
-m2 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR, control=list(peak.lim=pklim, length.lim=lenlim, nstart=100))
+m2 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
+               control=list(peak.lim=pklim, length.lim=lenlim, nstart=100))
 summary(m2)
 ```
 Estimated dynamic coefficients:
