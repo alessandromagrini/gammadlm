@@ -27,9 +27,9 @@ Load Bitcoin and US stock market data
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]  ## select data from April onwards
 ```
-Trasform the variables in log return to achieve stationarity
+Trasform the variables in log return to achieve weak stationarity
 ```
-mydataLR <- tsDiff(time.name="Date", data=mydata, ndiff=1, log=TRUE)
+mydataLR <- tsDiff(time="Date", data=mydata, log=TRUE, ndiff=1)
 ```
 Estimation with fixed values of delta and lambda parameters (1 step of ordinary least squares):
 ```
@@ -40,12 +40,12 @@ summary(mod)  ## summary of estimation
 ```
 Estimation with unknown delta and lambda parameters (hill climbing algorithm):
 ```
-# * no constraints
+# * no constraints with 50 random restarts (default)
 set.seed(100)
 m1 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR)
 summary(m1)
 
-# * same but with 100 random restarts
+# * no constraints with 100 random restarts
 set.seed(100)
 m1a <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR, control=list(nstart=100))
 summary(m1a)
@@ -56,10 +56,6 @@ lenlim <- list(DJA=c(3,10),IXIC=c(3,10),GSPC=c(3,10))
 set.seed(100)
 m2 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR, control=list(peak.lim=pklim, length.lim=lenlim, nstart=100))
 summary(m2)
-```
-Graphical model diagnostics:
-```
-residuals(mod, plot=T)
 ```
 Estimated dynamic coefficients:
 ```
