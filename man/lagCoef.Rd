@@ -1,7 +1,7 @@
 \name{lagCoef}
 \alias{lagCoef}
 \title{Estimated dynamic coefficients}
-\description{Estimated dynamic coefficients for each explanatory variable.}
+\description{See the estimated dynamic coefficients for each explanatory variable with lags.}
 \usage{lagCoef(x, cumulative=FALSE, max.lag=NULL, max.quantile=0.999)}
 \arguments{
   \item{x}{An object of class \code{gammadlm}.}
@@ -12,13 +12,13 @@
 \value{A list with one component for each explanatory variable with lags.
 Each component is an object of class \code{data.frame} with lags as observations and two columns containing estimation and asymptotic standard error.}
 %\details{}
-\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
+%\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 %\references{}
 \seealso{\link{gammadlm}; \link{plot.gammadlm}.}
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
-mydataLR <- tsDiff(time.name="Date", data=mydata, ndiff=1, log=TRUE)
+mydataLR <- tsDiff(time="Date", data=mydata, ndiff=1, log=TRUE)
 
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)

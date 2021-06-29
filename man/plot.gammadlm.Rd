@@ -1,7 +1,7 @@
 \name{plot.gammadlm}
 \alias{plot.gammadlm}
 \title{Graphics for the estimated lag distributions}
-\description{Obtain the graphic for the estimated lag distribution of each explanatory variable with lags.}
+\description{Display the estimated lag distribution of each explanatory variable with lags.}
 \usage{
 \method{plot}{gammadlm}(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile=0.999,
   xlim=NULL, ylim=NULL, add.legend=TRUE, cex.legend=1, digits=4, grid.length=100,
@@ -27,13 +27,13 @@
 %\value{}
 %\details{}
 %\note{}
-\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
+%\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 %\references{}
 \seealso{\link{gammadlm}.}
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
-mydataLR <- tsDiff(time.name="Date", data=mydata, ndiff=1, log=TRUE)
+mydataLR <- tsDiff(time="Date", data=mydata, ndiff=1, log=TRUE)
 
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)
