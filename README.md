@@ -52,7 +52,8 @@ summary(m1)
 
 # * no constraints with 100 random restarts
 set.seed(100)
-m1a <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR, control=list(nstart=100))
+m1a <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
+                control=list(nstart=100))
 summary(m1a)
 
 # * constraints: peak>=1 and 3<=length<=10
