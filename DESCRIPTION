@@ -2,8 +2,8 @@ Package: gammadlm
 Type: Package
 Title: The Gamma Distributed-Lag Model with Multiple Explanatory
         Variables
-Version: 0.0
-Date: 2021-06-29
+Version: 0.1
+Date: 2021-10-18
 Author: Alessandro Magrini
 Maintainer: Alessandro Magrini <alessandro.magrini@unifi.it>
 Description: Maximum likelihood estimation and inference for the Gamma distributed-lag model with multiple explanatory variables. A panel structure can be taken into account.
@@ -11,4 +11,4 @@ Depends: R (>= 3.5.0)
 Imports: graphics, stats
 License: GPL-2
 NeedsCompilation: no
-Packaged: 2021-06-29 15:23:51 UTC; Alessandro
+Packaged: 2021-10-18 12:40:48 UTC; Alessandro

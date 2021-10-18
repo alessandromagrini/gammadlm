@@ -1,7 +1,7 @@
 \name{gammadlm}
 \alias{gammadlm}
 \title{Estimation of a Gamma distributed-lag model}
-\description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using hill climbing algorithm. A panel structure can be taken into account.}
+\description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. A panel structure can be taken into account.}
 \usage{gammadlm(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
   offset=rep(0,length(x.names)), control=list(nstart=50, grid.by=0.05,
   delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE)}
@@ -53,14 +53,12 @@ Function \link{tsDiff} can be used to apply differencing to one or more time ser
 Function \link{gammadlm} checks weak stationarity of the residuals through the Augmented Dickey-Fuller test and returns a warning in case of failure.
 However, the user is strongly recommended to check weak stationarity of the time series autonomously before running the function \link{gammadlm}.
 
-When the \code{summary} method is called on an object of class \code{gammadlm}, the order of auto-correlation of the residuals is estimated based on the Bayesian Information Criterion. If it is greater than 0, then the Heteroscedasticity and Autocorrelation Consistent (HAC, Newey & West, 1987) estimator of the covariance matrix of least squares estimates is applied to get robust standard errors.
+When the \code{summary} method is called on an object of class \code{gammadlm}, the order of auto-correlation of the residuals is estimated based on the Bayesian Information Criterion. If it is greater than 0, then the Heteroskedasticity and Autocorrelation Consistent (HAC, Newey & West, 1987) estimator of the covariance matrix of least squares estimates is applied to get robust standard errors.
 The same holds for the \code{confint} method.
 }
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
 A. Magrini. A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. To be appeared on \emph{Austrian Journal of Statistics}.
-
-J. M. Alston, M. A. Andersen, J. S. James, P. G. Pardey (2011). The economic returns to U.S. public agricultural research. \emph{American Journal of Agricultural Economics}, 93(5), 1257-1277.
 
 W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }
@@ -70,7 +68,7 @@ W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasti
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
-mydataLR <- tsDiff(time="Date", data=mydata, ndiff=1, log=TRUE)
+mydataLR <- tsDiff(time="Date", data=mydata, box.cox=0, ndiff=1)
 
 ## estimation with fixed values of delta and lambda parameters: 1-step OLS
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
@@ -79,7 +77,7 @@ mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
   control=list(delta.lim=dval, lambda.lim=lval))
 summary(mod)  ## summary of estimation
 
-## estimation through hill climbing algorithm: NOT RUN
+## estimation through the hill climbing algorithm: NOT RUN
 ##
 ## * no constraints with 50 random restarts (by default)
 #set.seed(100)

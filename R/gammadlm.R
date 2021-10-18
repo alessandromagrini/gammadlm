@@ -1,6 +1,6 @@
 ### DA FARE
 #
-# - funzione per grafici e diagnostica dei residui nel caso panel
+# - residui e fitted values nel caso panel
 #
 # - gam_inits(): migliorare efficienza
 # - gammadlm(): random restarts overdispersi
@@ -11,6 +11,17 @@
 # - full covariance matrix
 #
 
+
+# apply box-cox transformation (auxiliary)
+makeBoxCox <- function(x, par) {
+  if(par==1) {
+    x
+    } else if(par==0) {
+    log(x)  
+    } else {
+    (x^par-1)/par  
+    }
+  }
 
 # unconstrained kernel (auxiliary)
 unconsKernel <- function(x, nlag, add.zero=F) {
@@ -154,7 +165,7 @@ gammaQuantile <- function(prob, par, offset=0) {
       wei_old <- wei
       wei <- wei+w0
       }
-    approx(c(wei_old,wei),c(lval-1,lval),xout=p)$y+offset
+    max(0, approx(c(wei_old,wei),c(lval-1,lval),xout=p)$y+offset)
     }
   res <- sapply(prob, qcalc)
   names(res) <- paste(round(prob*100,3),"%",sep="")
@@ -162,7 +173,7 @@ gammaQuantile <- function(prob, par, offset=0) {
   }
 
 # perform ADF test
-adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, log=FALSE, ndiff=0, max.lag=NULL) {
+adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   is.dummy <- function(x) {
@@ -191,26 +202,13 @@ adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, log=FALSE, ndif
     if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' is neither numeric nor a date")
     }
   #
-  if(length(log)==1) log <- rep(log,length(var.names))
-  if(length(log)!=length(var.names)) stop("Length of arguments 'var.names' and 'log' mismatch")
-  if(!is.logical(log)) stop("Argument 'log' must be a logical value or vector")
-  #
-  if(!is.null(max.lag)) {
-    if(length(max.lag)>1) max.lag <- max.lag[1]
-    if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
-    }
-  #
   testList <- list()
   if(is.null(panel)) gr <- NULL else gr <- data[,panel]
-  dataD <- tsDiff(var.names=var.names, panel=panel, time=time, data=data, log=log, ndiff=ndiff)
+  dataD <- tsDiff(var.names=var.names, panel=panel, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
   for(i in 1:length(var.names)) {
     iadf <- adfOneTest(x=dataD[,var.names[i]], panel=gr, max.lag=max.lag)
-    if(sum(data[,var.names[i]]<=0)==0) {
-      iadf$log <- log[i]
-      } else {
-      iadf$log <- F
-      }
-    iadf$ndiff <- ndiff[i]
+    iadf$box.cox <- unname(attr(dataD,"box.cox")[var.names[i]])
+    iadf$ndiff <- unname(attr(dataD,"ndiff")[var.names[i]])
     testList[[i]] <- iadf
     }
   names(testList) <- var.names
@@ -220,7 +218,11 @@ adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, log=FALSE, ndif
 
 # print method for class 'adfTest'
 print.adfTest <- function(x, ...) {
-  cat("p-values of the Augmented Dickey-Fuller test:","\n")
+  cat("Box-Cox parameters:","\n")  
+  print(sapply(x,function(z){z$box.cox}))
+  cat("Number of differences:","\n")
+  print(sapply(x,function(z){z$ndiff}))
+  cat("p-values (null hypothesis is unit root):","\n")
   print(sapply(x, function(z){
     pval <- z$p.value
     if(length(pval)==1) pval else pval["(combined)"]
@@ -238,15 +240,20 @@ adfOneTest <- function(x, panel=NULL, max.lag=NULL) {
     #
     #spline(x,xout=1:length(x),method="natural")$y
     }
-  n <- length(x)
+  if(is.null(panel)) {
+    n <- length(x)
+    } else {
+    n <- min(sapply(split(x,panel),length))
+    }
   if(n<5) stop("At least 5 observations are required")
-  #
   if(is.null(max.lag)) {
-    max.lag <- min(n-2,trunc((length(x)-1)^(1/3)))
+    #max.lag <- min(n-3,trunc((n-1)^(1/3)))
+    max.lag <- round(sqrt(n))
     } else {
     if(length(max.lag)>1) max.lag <- max.lag[1]
     if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
-    if(max.lag>n-2) stop("Argument 'max.lag' must be no greater than n-2")
+    if(max.lag>n-3) max.lag <- n-3
+    #stop("Argument 'max.lag' must be no greater than n-3")
     }
   if(is.null(panel)) {
     res <- adfFun(x=x, max.lag=max.lag)
@@ -315,17 +322,19 @@ adfFun <- function(x, max.lag) {
     c(STAT,PVAL)
     }
   #
-  k <- max.lag
+  #k <- max.lag
+  #res <- doADF(k)
+  #while(is.na(res[1])||(abs(res[1])>1.6 & k>0)) {
+  #   k <- k-1
+  #  res <- doADF(k)
+  #  }
+  k <- ar(x,order.max=max.lag)$order
   res <- doADF(k)
-  while(is.na(res[1])||(abs(res[1])>1.6 & k>0)) {
-    k <- k-1
-    res <- doADF(k)
-    }
   list(statistic=res[1],lag.selected=k,p.value=res[2])
   }
 
 # apply differencing
-tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, log=FALSE, ndiff=0) {
+tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff=0) {
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   is.dummy <- function(x) {
@@ -354,26 +363,43 @@ tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, log=FALSE, ndiff
     if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' is neither numeric nor a date")
     }
   #
-  if(length(ndiff)==1) ndiff <- rep(ndiff,length(var.names))
-  if(length(ndiff)!=length(var.names)) stop("Length of arguments 'var.names' and 'ndiff' mismatch")
-  if(!is.numeric(ndiff) || (sum(ndiff<0)>0 | sum(ndiff!=round(ndiff))>0)) stop("Argument 'ndiff' must be a non-negative integer value or vector")
+  if(!is.vector(box.cox) || !is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
+  if(length(box.cox)==1 & is.null(names(box.cox))) {
+    box.cox <- rep(box.cox,length(var.names))
+    names(box.cox) <- var.names
+    } else {
+    box.coxOK <- rep(1,length(var.names))
+    names(box.coxOK) <- var.names
+    box.coxOK[names(box.cox)] <- box.cox
+    box.cox <- box.coxOK[var.names]
+    }
   #
-  if(length(log)==1) log <- rep(log,length(var.names))
-  if(length(log)!=length(var.names)) stop("Length of arguments 'var.names' and 'log' mismatch")
-  if(!is.logical(log)) stop("Argument 'log' must be a logical value or vector")
+  if(!is.vector(ndiff) || !is.numeric(ndiff) || (sum(ndiff<0)>0 | sum(ndiff!=round(ndiff))>0)) stop("Argument 'ndiff' must be a non-negative integer value or vector")
+  if(length(ndiff)==1 & is.null(names(ndiff))) {
+    ndiff <- rep(ndiff,length(var.names))
+    names(ndiff) <- var.names
+    } else {
+    ndiffOK <- rep(0,length(var.names))
+    names(ndiffOK) <- var.names
+    ndiffOK[names(ndiff)] <- ndiff
+    ndiff <- ndiffOK[var.names]
+    } 
+  #
   dataL <- data
   for(i in 1:length(var.names)) {
-    if(log[i]) {
-      if(sum(data[,var.names[i]]<=0)==0) {
-        dataL[,var.names[i]] <- log(data[,var.names[i]])
-        } else {
-        warning("Logarithmic transformation not applied to variable '",var.names[i],"'",call.=F)  
-        }
+    ilam <- box.cox[var.names[i]]
+    if(ilam==0 & sum(data[,var.names[i]]<=0)>0) {
+      box.cox[var.names[i]] <- ilam <- 1
+      warning("Logarithmic transformation not applied to variable '",var.names[i],"'",call.=F)
       }
+    dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
     }
   #
   if(is.null(panel)) {
     dataD <- diffFun(var.names=var.names, time=time, data=dataL, ndiff=ndiff)
+    attr(dataD,"inits") <- unlist(data[1,var.names])
+    attr(dataD,"box.cox") <- box.cox
+    attr(dataD,"ndiff") <- ndiff
     if(max(ndiff)>0) {
       dataD[setdiff(1:nrow(data),1:max(ndiff)),]
       } else {
@@ -386,14 +412,19 @@ tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, log=FALSE, ndiff
     if(panel%in%var.names) stop("Variable '",panel,"' appears in both arguments 'var.names' and 'panel'")
     dataD <- dataL
     isNA <- c()
-    if(max(ndiff)>0) {
-      gr <- unique(na.omit(data[,panel]))
-      for(w in gr) {
-        ind <- which(data[,panel]==w)
-        isNA <- c(isNA, ind[1]:ind[max(ndiff)])
-        dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
-        }
+    gr <- unique(na.omit(data[,panel]))
+    val0 <- matrix(nrow=length(gr),ncol=length(var.names))
+    rownames(val0) <- gr
+    colnames(val0) <- var.names
+    for(w in 1:length(gr)) {
+      ind <- which(data[,panel]==gr[w])
+      isNA <- c(isNA, ind[1]:ind[max(ndiff)])
+      dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
+      val0[w,] <- as.numeric(data[ind[1],var.names])
       }
+    attr(dataD,"inits") <- val0
+    attr(dataD,"box.cox") <- box.cox
+    attr(dataD,"ndiff") <- ndiff
     dataD[setdiff(1:nrow(data),isNA),]
     }
   }
@@ -417,9 +448,14 @@ diffFun <- function(var.names, time, data, ndiff) {
 # fit ols con gamma lag (auxiliary)
 gam_olsFit <- function(y.name, x.names, z.names, panel, par, offset, data, normalize) {
   p <- length(x.names)
-  form0 <- paste(y.name," ~ ",sep="")
   if(normalize) normstr <- "" else normstr <- paste(",normalize=",normalize,sep="")
-  if(is.null(panel)) gstr <- "" else gstr <- paste(",panel=",panel,sep="")
+  if(is.null(panel)) {
+    form0 <- paste(y.name," ~ ",sep="")
+    gstr <- ""
+    } else {
+    form0 <- paste(y.name," ~ -1+",panel,"+",sep="")
+    gstr <- paste(",panel=",panel,sep="")
+    }
   for(i in 1:p) {
     if(i>1) form0 <- paste(form0,"+",sep="")
     if(offset[i]==0) offstr <- "" else offstr <- paste(",offset=",offset[i],sep="")
@@ -449,7 +485,7 @@ gam_olsFit <- function(y.name, x.names, z.names, panel, par, offset, data, norma
     idg <- lapply(split(data, data[,panel]), rownames)  
     }
   mod$unit.id <- idg
-  mod$data <- data[,c(y.name,x.names,z.names)]
+  mod$data <- data
   class(mod) <- c("gammadlm","lm")
   mod
   }
@@ -909,8 +945,13 @@ whitest <- function(Xmat, resid, max.degree) {
 
 # hac covariance matrix (auxiliary)
 hacCalc <- function(Xmat, resid, uS=NULL, unitID=NULL) {
-  max.degree <- 3  ## <----- max degree for white test
-  wtest <- whitest(Xmat=Xmat, resid=resid, max.degree=max.degree)
+  #
+  #max.degree <- 3  ## <----- max degree for white test
+  #wtest <- whitest(Xmat=Xmat, resid=resid, max.degree=max.degree)
+  #homo <- wtest["p.value"]>0.05
+  #
+  homo <- ar(resid^2)$order==0
+  #
   if(is.null(uS)) uS <- solve(t(Xmat)%*%Xmat)
   if(is.null(unitID)) {
     max.lag <- ar(resid)$order
@@ -920,7 +961,7 @@ hacCalc <- function(Xmat, resid, uS=NULL, unitID=NULL) {
       max.lag[i] <- ar(resid[unitID[[i]]])$order
       }
     }
-  if(sum(max.lag)==0 & wtest["p.value"]>0.05) {
+  if(sum(max.lag)==0 & homo==T) {
     uS*sum(resid^2)/(length(resid)-ncol(Xmat))
     } else {
     #
@@ -1091,7 +1132,8 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
       bcumco <- cbind(bcum,bcum-tquan*bcum_se,bcum+tquan*bcum_se)
       if(is.null(cex.legend)) cex.legend <- 1
       bcumcoOK <- signif(bcumco)
-      legtxt <- paste("Significant lags: ",floor(offs)," to ",ceiling(laglen),"\n",
+      #siglags <- which(abs(bcoef/bcoef_se)>tquan)-1
+      legtxt <- paste(#"Significant lags: ",min(siglags)," to ",max(siglags),"\n",
                       #", peak at ",ifelse(gpar[2]>0,round(gpar[1]/(gpar[1]-1)/log(gpar[2])-1,1),0)+offs,"\n",
                       "Cumulative coefficient: ",round(bcumcoOK[1],digits),"\n",
                       "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
@@ -1123,30 +1165,3 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
     }
   par(mfrow=mfrow0)
   }
-
-## residuals method for class 'gammadlm'
-#residuals.gammadlm <- function(object, plot=FALSE, cex.lab=1, cex.axis=1, ...) {
-#  if(length(plot)>1) plot <- plot[1]
-#  if(!is.logical(plot)) plot <- F
-#  if(plot) {
-#    res <- object$residuals
-#    mfrow0 <- par()$mfrow
-#    par(mfrow=c(2,2))
-#    plot(res, type="l", ylab="Residuals", xlab="Time", cex.lab=cex.lab, cex.axis=cex.axis)
-#    abline(h=0)
-#    res_acf <- acf(res, plot=F)$acf[,,1]
-#    plot(0:(length(res_acf)-1), res_acf, type="h", main="", ylab="Residual auto-correlation", xlab="Time lag", cex.lab=cex.lab, cex.axis=cex.axis)
-#    k <- exp(2*qnorm(0.975)/sqrt(length(res)-3)); zval <- (k-1)/(k+1)
-#    #zval <- qnorm(0.975)/sqrt(length(res))
-#    abline(h=c(-1,1)*zval, lty=2)
-#    #acf(res, main="", ylab="Residual auto-correlation", xlab="Time lag", cex.lab=cex.lab, cex.axis=cex.axis)
-#    abline(h=0)
-#    plot(object$fitted.values, res, ylab="Fitted values", xlab="Residuals", cex.lab=cex.lab, cex.axis=cex.axis, cex=0.8)
-#    abline(h=0)
-#    qqnorm(res, xlab="Theoretical residuals", ylab="Residuals", main="", cex.lab=cex.lab, cex.axis=cex.axis, cex=0.8)
-#    qqline(res)
-#    par(mfrow=mfrow0)
-#    } else {
-#    residuals.lm(object, ...)  
-#    }
-#  }
