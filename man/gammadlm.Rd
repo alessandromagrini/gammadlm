@@ -51,7 +51,7 @@ Weak stationarity is plausible in case of significance of the test, otherwise di
 Function \link{tsDiff} can be used to apply differencing to one or more time series.
 
 Function \link{gammadlm} checks weak stationarity of the residuals through the Augmented Dickey-Fuller test and returns a warning in case of failure.
-However, the user is strongly recommended to check weak stationarity of the time series autonomously before running the function \link{gammadlm}.
+However, the user is strongly recommended to check weak stationarity of the time series through the function \link{adfTest} before running the function \link{gammadlm}.
 
 When the \code{summary} method is called on an object of class \code{gammadlm}, the order of auto-correlation of the residuals is estimated based on the Bayesian Information Criterion. If it is greater than 0, then the Heteroskedasticity and Autocorrelation Consistent (HAC, Newey & West, 1987) estimator of the covariance matrix of least squares estimates is applied to get robust standard errors.
 The same holds for the \code{confint} method.
@@ -62,7 +62,7 @@ A. Magrini. A hill climbing algorithm for maximum likelihood estimation of the G
 
 W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }
-\seealso{\link{lagCoef}; \link{plot.gammadlm}.
+\seealso{\link{adfTest}; \link{lagCoef}; \link{plot.gammadlm}.
 %\link{residuals.gammadlm}.
 }
 \examples{

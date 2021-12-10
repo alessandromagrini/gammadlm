@@ -24,7 +24,7 @@ makeBoxCox <- function(x, par) {
   }
 
 # unconstrained kernel (auxiliary)
-unconsKernel <- function(x, nlag, add.zero=F) {
+unconsKernel <- function(x, nlag, imputation=F) {
   if(nlag>0) {
     n <- length(x)
     res <- x
@@ -33,7 +33,7 @@ unconsKernel <- function(x, nlag, add.zero=F) {
       res <- cbind(res,ilx)
       }
     colnames(res) <- 0:nlag
-    if(add.zero==T) res[which(is.na(res))] <- 0
+    if(imputation==T) res[which(is.na(res))] <- mean(x,na.rm=T)
     } else {
     res <- matrix(x,ncol=1)
     colnames(res) <- 0
@@ -85,17 +85,19 @@ gammaWeights <- function(k, par, offset=0, normalize=TRUE) {
 gamkern <- function(x, par, offset, normalize) {
   n <- length(x)
   wei <- gammaWeights(0:(n-1), par=par, offset=offset, normalize=normalize)
-  #c(unconsKernel(x,n-1,add.zero=T)%*%wei)
   res <- c()
   for(i in 1:n) {
-    #ires <- 0
-    #for(j in 0:(i-1)) {
-    #  ires <- ires+wei[j+1]*x[i-j]
-    #  }
-    #res[i] <- ires
     res[i] <- sum(wei[1:i]*x[i-(0:(i-1))])
     }
   res
+  #x2 <- c(rep(mean(x,na.rm=T),length(x)),x)
+  #n <- length(x2)
+  #wei <- gammaWeights(0:(n-1), par=par, offset=offset, normalize=normalize)
+  #res <- c()
+  #for(i in 1:n) {
+  #  res[i] <- sum(wei[1:i]*x2[i-(0:(i-1))])
+  #  }
+  #res[(length(x)+1):n]
   }
 
 # gamma kernel projection
@@ -203,8 +205,8 @@ adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndif
     }
   #
   testList <- list()
-  if(is.null(panel)) gr <- NULL else gr <- data[,panel]
   dataD <- tsDiff(var.names=var.names, panel=panel, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
+  if(is.null(panel)) gr <- NULL else gr <- dataD[,panel]
   for(i in 1:length(var.names)) {
     iadf <- adfOneTest(x=dataD[,var.names[i]], panel=gr, max.lag=max.lag)
     iadf$box.cox <- unname(attr(dataD,"box.cox")[var.names[i]])
@@ -218,13 +220,13 @@ adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndif
 
 # print method for class 'adfTest'
 print.adfTest <- function(x, ...) {
-  cat("Box-Cox parameters:","\n")  
-  print(sapply(x,function(z){z$box.cox}))
-  cat("Number of differences:","\n")
-  print(sapply(x,function(z){z$ndiff}))
+  #cat("Box-Cox parameters:","\n")  
+  #print(sapply(x,function(z){z$box.cox}))
+  #cat("Number of differences:","\n")
+  #print(sapply(x,function(z){z$ndiff}))
   cat("p-values (null hypothesis is unit root):","\n")
   print(sapply(x, function(z){
-    pval <- z$p.value
+    pval <- round(z$p.value,4)
     if(length(pval)==1) pval else pval["(combined)"]
     }))
   }
@@ -418,7 +420,7 @@ tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff
     colnames(val0) <- var.names
     for(w in 1:length(gr)) {
       ind <- which(data[,panel]==gr[w])
-      isNA <- c(isNA, ind[1]:ind[max(ndiff)])
+      if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
       dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
       val0[w,] <- as.numeric(data[ind[1],var.names])
       }
@@ -842,7 +844,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
   #  resid <- modOK$residuals
   #  arRes <- ar(resid)
   #  if(arRes$order>0) {
-  #    epsFit <- unconsKernel(resid,arRes$order,T)%*%c(0,arRes$ar)
+  #    epsFit <- unconsKernel(resid, nlag=arRes$order, imputation=T)%*%c(0,arRes$ar)
   #    modOK$adj.fitted.values <- modOK$fitted.values-c(epsFit)
   #    } else {
   #    modOK$adj.fitted.values <- modOK$fitted.values
@@ -898,7 +900,7 @@ arTest <- function(resid, max.order=NULL) {
   fine <- 0
   while(fine==0) {
     if(p.current>0) {
-      X <- unconsKernel(resid,p.current,F)[ind,-1,drop=F]
+      X <- unconsKernel(resid, nlag=p.current, imputation=F)[ind,-1,drop=F]
       mod <- lm(y~-1+X)
       } else {
       mod <- lm(y~-1)
@@ -916,7 +918,7 @@ arTest <- function(resid, max.order=NULL) {
       }
     }
   if(pOK>0) {
-    mOK <- lm(resid~unconsKernel(resid,pOK,F)[,-1,drop=F])
+    mOK <- lm(resid~unconsKernel(resid, nlag=pOK, imputation=F)[,-1,drop=F])
     bhat <- mOK$coef
     names(bhat) <- 0:(length(bhat)-1)
     } else {

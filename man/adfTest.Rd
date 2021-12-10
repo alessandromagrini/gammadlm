@@ -25,7 +25,7 @@
 }
 \note{The first order difference of logarithmic values (\code{box.cox}=0 and \code{ndiff}=1) provides the log returns, which approximate the proportional changes with respect to the previous time point.
 
-If the parameter of the Box-Cox transformation is set to 0 for a non-negative variable, the transformation will not be applied (parameter equal to 1) and a warning is returned.}
+If the parameter of the Box-Cox transformation is set to 0 for a non-negative variable, the transformation will not be applied. i.e., the parameter is set to 1, and a warning is returned.}
 \details{The variable subjected to the test must be quantitative.
 
 The null hypothesis is the presence of unit root, thus p-values higher than 0.05 indicate the absence of weak stationarity and thus the need of differencing the time series.
