@@ -101,7 +101,7 @@ gamkern <- function(x, par, offset, normalize) {
   }
 
 # gamma kernel projection
-gammaKernel <- function(x, par, panel=NULL, offset=0, normalize=TRUE) {
+gammaKernel <- function(x, par, unit=NULL, offset=0, normalize=TRUE) {
   if(missing(x)) stop("Argument 'x' is missing")
   if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector")
   #
@@ -115,13 +115,13 @@ gammaKernel <- function(x, par, panel=NULL, offset=0, normalize=TRUE) {
   if(length(normalize)>1) normalize <- normalize[1]
   if(!is.logical(normalize)) stop("Argument 'normalize' must be a logical value")
   #
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     gamkern(x=x, par=par, offset=offset, normalize=normalize)
     } else {
-    gr <- unique(na.omit(panel))
+    gr <- unique(na.omit(unit))
     res <- rep(NA,length(x))
     for(w in gr) {
-      ind <- which(panel==w)
+      ind <- which(unit==w)
       res[ind] <- gamkern(x=x[ind], par=par, offset=offset, normalize=normalize)
       }
     res
@@ -175,7 +175,7 @@ gammaQuantile <- function(prob, par, offset=0) {
   }
 
 # perform ADF test
-adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
+adfTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   is.dummy <- function(x) {
@@ -201,14 +201,14 @@ adfTest <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndif
     if(length(time)>1) time <- time[1]
     if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' in argument 'time'")
     if(time%in%var.names) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
-    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' is neither numeric nor a date")
+    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
     }
   #
   testList <- list()
-  dataD <- tsDiff(var.names=var.names, panel=panel, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
-  if(is.null(panel)) gr <- NULL else gr <- dataD[,panel]
+  dataD <- tsDiff(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
+  if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   for(i in 1:length(var.names)) {
-    iadf <- adfOneTest(x=dataD[,var.names[i]], panel=gr, max.lag=max.lag)
+    iadf <- adfOneTest(x=dataD[,var.names[i]], unit=gr, max.lag=max.lag)
     iadf$box.cox <- unname(attr(dataD,"box.cox")[var.names[i]])
     iadf$ndiff <- unname(attr(dataD,"ndiff")[var.names[i]])
     testList[[i]] <- iadf
@@ -232,7 +232,7 @@ print.adfTest <- function(x, ...) {
   }
 
 # adf test for one variabile (auxiliary)
-adfOneTest <- function(x, panel=NULL, max.lag=NULL) {
+adfOneTest <- function(x, unit=NULL, max.lag=NULL) {
   if(missing(x)) stop("Argument 'x' is missing")
   if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector")
   nmiss <- sum(is.na(x))
@@ -242,10 +242,10 @@ adfOneTest <- function(x, panel=NULL, max.lag=NULL) {
     #
     #spline(x,xout=1:length(x),method="natural")$y
     }
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     n <- length(x)
     } else {
-    n <- min(sapply(split(x,panel),length))
+    n <- min(sapply(split(x,unit),length))
     }
   if(n<5) stop("At least 5 observations are required")
   if(is.null(max.lag)) {
@@ -254,16 +254,18 @@ adfOneTest <- function(x, panel=NULL, max.lag=NULL) {
     } else {
     if(length(max.lag)>1) max.lag <- max.lag[1]
     if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
-    if(max.lag>n-3) max.lag <- n-3
-    #stop("Argument 'max.lag' must be no greater than n-3")
+    if(max.lag>n-3) {
+      max.lag <- n-3
+      #warning("Argument 'max.lag' was set to ",n-3)
+      }
     }
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     res <- adfFun(x=x, max.lag=max.lag)
     } else {
-    gr <- unique(na.omit(panel))
+    gr <- unique(na.omit(unit))
     res <- vector("list",length=3)
     for(w in gr) {
-      ind <- which(panel==w)
+      ind <- which(unit==w)
       iadf <- adfFun(x=x[ind], max.lag=max.lag)
       for(j in 1:length(iadf)) {
         res[[j]] <- c(res[[j]],iadf[[j]])
@@ -323,20 +325,50 @@ adfFun <- function(x, max.lag) {
       }
     c(STAT,PVAL)
     }
-  #
-  #k <- max.lag
-  #res <- doADF(k)
-  #while(is.na(res[1])||(abs(res[1])>1.6 & k>0)) {
-  #   k <- k-1
-  #  res <- doADF(k)
-  #  }
-  k <- ar(x,order.max=max.lag)$order
+  if(max.lag>0) {
+    k <- ar(x,order.max=max.lag)$order
+    } else {
+    k <- 0
+    }
   res <- doADF(k)
   list(statistic=res[1],lag.selected=k,p.value=res[2])
   }
 
+# function for kpss test (internal use only)
+kpssFun <- function (x,trend,lshort) {
+  n <- length(x)
+  if(trend==T) {
+    t <- 1:n
+    e <- residuals.lm(lm(x ~ t))
+    table <- c(0.216, 0.176, 0.146, 0.119)
+    } else {
+    e <- residuals.lm(lm(x ~ 1))
+    table <- c(0.739, 0.574, 0.463, 0.347)
+    }
+  tablep <- c(0.01, 0.025, 0.05, 0.1)
+  s <- cumsum(e)
+  eta <- sum(s^2)/(n^2)
+  s2 <- sum(e^2)/n
+  if(lshort==T) {
+    l <- trunc(4*(n/100)^0.25)
+    } else {
+    l <- trunc(12*(n/100)^0.25)
+    }
+  k <- 0
+  for(i in 1:l) {
+    ik <- 0
+    for(j in (i+1):n) {
+      ik <- ik+e[j]*e[j-i]
+      }
+    k <- k+(1-i/(l+1))*ik
+    }
+  STAT <- eta/(s2+2*k/n)
+  PVAL <- approx(table,tablep,STAT,rule=2)$y
+  list(statistic=STAT,lag.order=l,p.value=PVAL)
+  }
+
 # apply differencing
-tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff=0) {
+tsDiff <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0) {
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   is.dummy <- function(x) {
@@ -362,7 +394,7 @@ tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff
     if(length(time)>1) time <- time[1]
     if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' in argument 'time'")
     if(time%in%var.names) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
-    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' is neither numeric nor a date")
+    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
     }
   #
   if(!is.vector(box.cox) || !is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
@@ -397,7 +429,7 @@ tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff
     dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
     }
   #
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     dataD <- diffFun(var.names=var.names, time=time, data=dataL, ndiff=ndiff)
     attr(dataD,"inits") <- unlist(data[1,var.names])
     attr(dataD,"box.cox") <- box.cox
@@ -408,18 +440,18 @@ tsDiff <- function(var.names=NULL, panel=NULL, time=NULL, data, box.cox=1, ndiff
       dataD
       }
     } else {
-    if(length(panel)>1) panel <- panel[1]
-    if((panel%in%colnames(data))==F) stop("Unknown variable '",panel,"' in argument 'panel'")
-    if(panel%in%time) stop("Variable '",panel,"' appears in both arguments 'time' and 'panel'")
-    if(panel%in%var.names) stop("Variable '",panel,"' appears in both arguments 'var.names' and 'panel'")
+    if(length(unit)>1) unit <- unit[1]
+    if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
+    if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
+    if(unit%in%var.names) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
     dataD <- dataL
     isNA <- c()
-    gr <- unique(na.omit(data[,panel]))
+    gr <- unique(na.omit(data[,unit]))
     val0 <- matrix(nrow=length(gr),ncol=length(var.names))
     rownames(val0) <- gr
     colnames(val0) <- var.names
     for(w in 1:length(gr)) {
-      ind <- which(data[,panel]==gr[w])
+      ind <- which(data[,unit]==gr[w])
       if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
       dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
       val0[w,] <- as.numeric(data[ind[1],var.names])
@@ -448,15 +480,15 @@ diffFun <- function(var.names, time, data, ndiff) {
   }
 
 # fit ols con gamma lag (auxiliary)
-gam_olsFit <- function(y.name, x.names, z.names, panel, par, offset, data, normalize) {
+gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize) {
   p <- length(x.names)
   if(normalize) normstr <- "" else normstr <- paste(",normalize=",normalize,sep="")
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     form0 <- paste(y.name," ~ ",sep="")
     gstr <- ""
     } else {
-    form0 <- paste(y.name," ~ -1+",panel,"+",sep="")
-    gstr <- paste(",panel=",panel,sep="")
+    form0 <- paste(y.name," ~ -1+",unit,"+",sep="")
+    gstr <- paste(",unit=",unit,sep="")
     }
   for(i in 1:p) {
     if(i>1) form0 <- paste(form0,"+",sep="")
@@ -481,10 +513,10 @@ gam_olsFit <- function(y.name, x.names, z.names, panel, par, offset, data, norma
   #mod$par <- parlist
   #
   mod$variables <- list(y.name=y.name,x.names=x.names,z.names=z.names)
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     idg <- NULL
     } else {
-    idg <- lapply(split(data, data[,panel]), rownames)  
+    idg <- lapply(split(data, data[,unit]), rownames)  
     }
   mod$unit.id <- idg
   mod$data <- data
@@ -583,7 +615,7 @@ visitFun <- function(par, par.list) {
   }
 
 # function for hill climbing (auxiliary)
-gam_hcFun <- function(y.name, x.names, z.names, panel, data, offset, inits, visitList, gridList, sign, grid.by) {
+gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by) {
   p <- length(x.names)
   n <- nrow(data)
   logn <- log(n)
@@ -603,7 +635,7 @@ gam_hcFun <- function(y.name, x.names, z.names, panel, data, offset, inits, visi
         check0 <- visitFun(ijpar, visitList)
         if(check0==0) {
           visitList <- c(visitList,list(ijpar))
-          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, panel=panel, par=ijpar, offset=offset, data=data, normalize=F)
+          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F)
           ijrss <- sum(ijm$residuals^2)
           testL <- c(testL,list(ijpar))
           #ijsign <- sign(ijm$coef[-1])   <------ gestire constraint segno
@@ -631,7 +663,7 @@ gam_hcFun <- function(y.name, x.names, z.names, panel, data, offset, inits, visi
       }
     }
   #parOK <- modOK$par
-  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, panel=panel, par=parOK, offset=offset, data=data, normalize=T)
+  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T)
   list(model=modFinal,par.tested=testL)
   }
 
@@ -656,7 +688,7 @@ optFormat <- function(optList, nomi, val) {
   }
 
 # MASTER FUNCTION
-gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data, offset=rep(0,length(x.names)),
+gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)),
   control=list(nstart=50, grid.by=0.05, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL),
   quiet=FALSE) {
   #
@@ -690,22 +722,22 @@ gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
     if(time%in%y.name) stop("Variable '",time,"' appears in both arguments 'y.name' and 'time'")
     if(time%in%x.names) stop("Variable '",time,"' appears in both arguments 'x.names' and 'time'")
     if(!is.null(z.names) && time%in%z.names) stop("Variable '",time,"' appears in both arguments 'z.names' and 'time'")
-    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' is neither numeric nor a date")
+    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
     }
   #
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     if(!is.null(time)) data <- data[order(data[,time]),]
     } else {
-    if(length(panel)>1) panel <- panel[1]
-    if((panel%in%colnames(data))==F) stop("Unknown variable '",panel,"' in argument 'panel'")
-    if(panel%in%y.name) stop("Variable '",panel,"' appears in both arguments 'y.name' and 'panel'")
-    if(panel%in%x.names) stop("Variable '",panel,"' appears in both arguments 'x.names' and 'panel'")
-    if(panel%in%z.names) stop("Variable '",panel,"' appears in both arguments 'z.names' and 'panel'")
-    if(panel%in%time) stop("Variable '",panel,"' appears in both arguments 'time' and 'panel'")
+    if(length(unit)>1) unit <- unit[1]
+    if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
+    if(unit%in%y.name) stop("Variable '",unit,"' appears in both arguments 'y.name' and 'unit'")
+    if(unit%in%x.names) stop("Variable '",unit,"' appears in both arguments 'x.names' and 'unit'")
+    if(unit%in%z.names) stop("Variable '",unit,"' appears in both arguments 'z.names' and 'unit'")
+    if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
     if(!is.null(time)) {
-      gr <- unique(na.omit(panel))
+      gr <- unique(na.omit(unit))
       for(w in gr) {
-        ind <- which(data[,panel]==w)
+        ind <- which(data[,unit]==w)
         idat <- data[ind,]
         data[ind,] <- idat[order(idat[,time]),]
         }
@@ -746,7 +778,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
     par <- NULL
     }
   if(!is.null(par)) {
-    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, panel=panel, offset=offset, data=data, normalize=T)
+    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=data, normalize=T)
     } else {
     p <- length(x.names)
     peak.lim <- optFormat(peak.lim, x.names, c(0,Inf))
@@ -773,7 +805,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
       #
       if(nstart==1) {
         ini0 <- matrix(0,nrow=2,ncol=length(x.names))
-        gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, panel=panel, data=data,
+        gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
                          offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
                          sign=sign, grid.by=grid.by)
         modOK <- gs0$model
@@ -788,7 +820,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
         #  }
         ini0 <- gam_inits(gridList=gridList, visitList=visitList, maxtry=max.start)
         if(!is.null(ini0)) {
-          gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, panel=panel, data=data,
+          gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
                            offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
                            sign=sign, grid.by=grid.by)
           } else {
@@ -852,10 +884,10 @@ gammadlm <- function(y.name, x.names, z.names=NULL, panel=NULL, time=NULL, data,
   #  }
   #
   #
-  if(is.null(panel)) {
+  if(is.null(unit)) {
     pval <- adfOneTest(modOK$residuals)$p.value
     } else {
-    pval <- adfOneTest(modOK$residuals, panel=data[,panel])$p.value["(combined)"]
+    pval <- adfOneTest(modOK$residuals, unit=data[,unit])$p.value["(combined)"]
     }
   if(pval>0.05) warning("ADF test on residuals is not significant: regression could be spurious", call.=F)
   modOK
