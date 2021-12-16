@@ -47,7 +47,7 @@ Furthermore, method \link{lagCoef} can be used to see the estimated dynamic coef
 \note{
 Weak stationarity of all time series (expected value and autocorrelation function independent of time) is a basic assumption of the model.
 However, it is sufficient that all time series do not contain unit roots to get valid results (Granger \& Newbold, 1974).
-Before calling the function \link{gammadlm}, the user is strongly recommended to check the absence of unit roots in each time series through the function \link{adfTest}, which performs the Augmented Dickey-Fuller test (Dickey \& Fuller, 1981), and to apply differencing through the function \link{tsDiff} to each time series for which the test is not significant.
+Before calling the function \link{gammadlm}, the user is strongly recommended to check the absence of unit roots in each time series through the function \link{unirootTest}, and to apply differencing through the function \link{tsDiff} to each time series with unit roots.
 
 Function \link{gammadlm} automatically checks the absence of unit roots in the residuals and returns a warning in case of failure.
 
@@ -56,7 +56,7 @@ The same holds for the \code{confint} method.
 }
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-D. A. Dickey, and W. A. Fuller (1981). Likelihood ratio statistics for autoregressive time series with a unit root. \emph{Econometrica}, 49(4): 1057-1072.
+%D. A. Dickey, and W. A. Fuller (1981). Likelihood ratio statistics for autoregressive time series with a unit root. \emph{Econometrica}, 49(4): 1057-1072.
 
 C. W. J. Granger, and P. Newbold (1974). Spurious regressions in econometrics. \emph{Journal of Econometrics}, 2(2): 111-120.
 
@@ -64,7 +64,7 @@ A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation o
 
 W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }
-\seealso{\link{adfTest}; \link{lagCoef}; \link{plot.gammadlm}.
+\seealso{\link{unirootTest}; \link{lagCoef}; \link{plot.gammadlm}.
 %\link{residuals.gammadlm}.
 }
 \examples{

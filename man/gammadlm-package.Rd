@@ -8,7 +8,7 @@
   Package: \tab gammadlm\cr
   Type: \tab Package\cr
   Version: \tab 0.1.1\cr
-  Date: \tab 2021-12-11\cr
+  Date: \tab 2021-12-16\cr
   License: \tab GPL-2
   }
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.
@@ -35,7 +35,7 @@ where:
 }
 The main functions of the package are:
 \itemize{
-  \item{\link{adfTest} and \link{tsDiff}, }{to check weak stationarity and to apply differencing in order to achieve it;}
+  \item{\link{unirootTest} and \link{tsDiff}, }{to check weak stationarity and to apply differencing in order to achieve it;}
   \item{\link{gammadlm}, }{to estimate the model through the hill climbing algorithm;}
   \item{\link{lagCoef}, }{to see the estimated dynamic coefficients;}
   \item{\link{plot.gammadlm}, }{to display the estimated lag distributions.}

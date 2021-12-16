@@ -1,9 +1,9 @@
-export(gammaWeights, gammaKernel, gammaQuantile, adfTest, tsDiff, gammadlm, lagCoef)
+export(gammaWeights, gammaKernel, gammaQuantile, unirootTest, tsDiff, gammadlm, lagCoef)
 
 S3method(vcov, gammadlm)
 S3method(summary, gammadlm)
 S3method(plot, gammadlm)
-S3method(print, adfTest)
+S3method(print, unirootTest)
 
 importFrom("grDevices", "adjustcolor", "n2mfrow")
 importFrom("graphics", "abline", "box", "grid", "legend", "lines", "par", "polygon")

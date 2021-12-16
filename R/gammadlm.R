@@ -4,8 +4,7 @@
 #
 # - gam_inits(): migliorare efficienza
 # - gammadlm(): random restarts overdispersi
-# - adfTest(): gestione missing
-# - predict(): tenere conto dell'autocorrelazione degli errori
+# - h-step ahead prediction (tenere conto dell'autocorrelazione degli errori)
 # - constraint segno
 # - draw sample
 # - full covariance matrix
@@ -174,8 +173,8 @@ gammaQuantile <- function(prob, par, offset=0) {
   res
   }
 
-# perform ADF test
-adfTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
+# perform unit root test
+unirootTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   is.dummy <- function(x) {
@@ -208,46 +207,59 @@ adfTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff
   dataD <- tsDiff(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
   if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   for(i in 1:length(var.names)) {
-    iadf <- adfOneTest(x=dataD[,var.names[i]], unit=gr, max.lag=max.lag)
+    iadf <- oneTest(x=dataD[,var.names[i]], unit=gr, max.lag=max.lag)
     iadf$box.cox <- unname(attr(dataD,"box.cox")[var.names[i]])
     iadf$ndiff <- unname(attr(dataD,"ndiff")[var.names[i]])
     testList[[i]] <- iadf
     }
   names(testList) <- var.names
-  class(testList) <- "adfTest"
+  class(testList) <- "unirootTest"
   testList
   }
 
-# print method for class 'adfTest'
-print.adfTest <- function(x, ...) {
-  #cat("Box-Cox parameters:","\n")  
-  #print(sapply(x,function(z){z$box.cox}))
-  #cat("Number of differences:","\n")
-  #print(sapply(x,function(z){z$ndiff}))
-  cat("p-values (null hypothesis is unit root):","\n")
-  print(sapply(x, function(z){
+# print method for class 'unirootTest'
+print.unirootTest <- function(x, ...) {
+  cat("p-values","\n")
+  cat("  ADF:  null hypothesis is 'unit root'","\n")
+  cat("  KPSS: null hypothesis is 'no unit roots'","\n")
+  tab <- sapply(x, function(z){
     pval <- round(z$p.value,4)
-    if(length(pval)==1) pval else pval["(combined)"]
-    }))
+    if(is.matrix(pval)) pval["(combined)",] else pval
+    })
+  print(t(tab))
   }
 
-# adf test for one variabile (auxiliary)
-adfOneTest <- function(x, unit=NULL, max.lag=NULL) {
-  if(missing(x)) stop("Argument 'x' is missing")
-  if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector")
-  nmiss <- sum(is.na(x))
-  if(nmiss>0) {
-    x <- na.omit(x)  ## <----- gestione buchi
-    warning(nmiss," missing values have been deleted")
-    #
-    #spline(x,xout=1:length(x),method="natural")$y
-    }
-  if(is.null(unit)) {
-    n <- length(x)
+# linear interpolation (auxiliary)
+linInterp <- function(x) {
+  if(sum(!is.na(x))>=2) {
+    approx(x, xout=1:length(x))$y
     } else {
-    n <- min(sapply(split(x,unit),length))
+    x
     }
-  if(n<5) stop("At least 5 observations are required")
+  }
+
+# unit root test for one variabile (auxiliary)
+oneTest <- function(x, unit=NULL, max.lag=NULL) {
+  if(missing(x)) stop("Argument 'x' is missing",call.=F)
+  if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector",call.=F)
+  if(is.null(unit)) {
+    x <- na.omit(linInterp(x))
+    n <- length(x)
+    if(n<5) stop("At least 5 observations are required",call.=F)
+    } else {
+    gr <- unique(na.omit(unit))
+    nvet <- c()
+    for(w in gr) {
+      ind <- which(unit==w)
+      x[ind] <- linInterp(x[ind])
+      nvet[w] <- length(na.omit(x[ind]))
+      if(nvet[w]<5) stop("At least 5 observations are required for each unit",call.=F)
+      }
+    isOK <- which(!is.na(x))
+    x <- x[isOK]
+    unit <- unit[isOK]
+    n <- min(nvet)
+    }
   if(is.null(max.lag)) {
     #max.lag <- min(n-3,trunc((n-1)^(1/3)))
     max.lag <- round(sqrt(n))
@@ -260,26 +272,44 @@ adfOneTest <- function(x, unit=NULL, max.lag=NULL) {
       }
     }
   if(is.null(unit)) {
-    res <- adfFun(x=x, max.lag=max.lag)
+    res <- res1 <- adfFun(x=x, max.lag=max.lag)
+    res2 <- kpssFun(x=x, max.lag=max.lag)
+    for(i in 1:3) {
+      res[[i]] <- c(adf=res1[[i]],kpss=res2[[i]])
+      }
     } else {
     gr <- unique(na.omit(unit))
-    res <- vector("list",length=3)
+    res1 <- res2 <- vector("list",length=3)
     for(w in gr) {
       ind <- which(unit==w)
       iadf <- adfFun(x=x[ind], max.lag=max.lag)
-      for(j in 1:length(iadf)) {
-        res[[j]] <- c(res[[j]],iadf[[j]])
+      ikpss <- kpssFun(x=x[ind], max.lag=max.lag)
+      for(j in 1:length(res1)) {
+        res1[[j]] <- c(res1[[j]],iadf[[j]])
+        res2[[j]] <- c(res2[[j]],ikpss[[j]])
         }
       }
-    res <- lapply(res, function(z){names(z)<-gr; z})
-    names(res) <- names(iadf)
-    m <- length(res$p.value)
-    logp <- qnorm(res$p.value)
-    rhat <- 1-var(logp)
-    rstar <- max(rhat,-1/(m-1))
-    auxz <- sum(logp)/sqrt(m*(1+(m-1)*(rstar+0.2*sqrt(2/(m+1))*(1-rstar))))
-    #auxz <- sum(logp)/sqrt(m)
-    res$p.value <- c(res$p.value,'(combined)'=2*pnorm(-abs(auxz)))
+    #
+    pvalComb <- function(x) {
+      m <- length(x)
+      logp <- qnorm(x)
+      rhat <- 1-var(logp)
+      rstar <- max(rhat,-1/(m-1))
+      auxz <- sum(logp)/sqrt(m*(1+(m-1)*(rstar+0.2*sqrt(2/(m+1))*(1-rstar))))
+      #auxz <- sum(logp)/sqrt(m)
+      c(x,'(combined)'=2*pnorm(-abs(auxz)))
+      }
+    #
+    res1 <- lapply(res1, function(z){names(z)<-gr; z})
+    names(res1) <- names(iadf)
+    res1$p.value <- pvalComb(res1$p.value)
+    res2 <- lapply(res2, function(z){names(z)<-gr; z})
+    names(res2) <- names(ikpss)
+    res2$p.value <- pvalComb(res2$p.value)
+    res <- res1
+    for(i in 1:3) {
+      res[[i]] <- cbind(adf=res1[[i]],kpss=res2[[i]])
+      }
     }
   res
   }
@@ -331,40 +361,46 @@ adfFun <- function(x, max.lag) {
     k <- 0
     }
   res <- doADF(k)
-  list(statistic=res[1],lag.selected=k,p.value=res[2])
+  list(statistic=res[1], lag.selected=k, p.value=res[2])
   }
 
 # function for kpss test (internal use only)
-kpssFun <- function (x,trend,lshort) {
-  n <- length(x)
-  if(trend==T) {
-    t <- 1:n
-    e <- residuals.lm(lm(x ~ t))
-    table <- c(0.216, 0.176, 0.146, 0.119)
-    } else {
-    e <- residuals.lm(lm(x ~ 1))
-    table <- c(0.739, 0.574, 0.463, 0.347)
-    }
-  tablep <- c(0.01, 0.025, 0.05, 0.1)
-  s <- cumsum(e)
-  eta <- sum(s^2)/(n^2)
-  s2 <- sum(e^2)/n
-  if(lshort==T) {
-    l <- trunc(4*(n/100)^0.25)
-    } else {
-    l <- trunc(12*(n/100)^0.25)
-    }
-  k <- 0
-  for(i in 1:l) {
-    ik <- 0
-    for(j in (i+1):n) {
-      ik <- ik+e[j]*e[j-i]
+kpssFun <- function(x, max.lag) {
+  #
+  doKPSS <- function(lag) {
+    n <- length(x)
+    #if(trend==T) {
+      t <- 1:n
+      e <- residuals.lm(lm(x ~ t))
+      table <- c(0.216, 0.176, 0.146, 0.119)
+    #  } else {
+    #  e <- residuals.lm(lm(x ~ 1))
+    #  table <- c(0.739, 0.574, 0.463, 0.347)
+    #  }
+    tablep <- c(0.01, 0.025, 0.05, 0.1)
+    s <- cumsum(e)
+    eta <- sum(s^2)/(n^2)
+    s2 <- sum(e^2)/n
+    k <- 0
+    for(i in 1:lag) {
+      ik <- 0
+      for(j in (i+1):n) {
+        ik <- ik+e[j]*e[j-i]
+        }
+      k <- k+(1-i/(lag+1))*ik
       }
-    k <- k+(1-i/(l+1))*ik
+    STAT <- eta/(s2+2*k/n)
+    PVAL <- approx(table,tablep,STAT,rule=2)$y
+    c(statistic=STAT, p.value=PVAL)
     }
-  STAT <- eta/(s2+2*k/n)
-  PVAL <- approx(table,tablep,STAT,rule=2)$y
-  list(statistic=STAT,lag.order=l,p.value=PVAL)
+  #
+  if(max.lag>0) {
+    k <- ar(x,order.max=max.lag)$order
+    } else {
+    k <- 0
+    }
+  res <- doKPSS(k)
+  list(statistic=unname(res[1]), lag.selected=k, p.value=unname(res[2]))
   }
 
 # apply differencing
@@ -422,7 +458,7 @@ tsDiff <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=
   dataL <- data
   for(i in 1:length(var.names)) {
     ilam <- box.cox[var.names[i]]
-    if(ilam==0 & sum(data[,var.names[i]]<=0)>0) {
+    if(ilam==0 & sum(data[,var.names[i]]<=0,na.rm=T)>0) {
       box.cox[var.names[i]] <- ilam <- 1
       warning("Logarithmic transformation not applied to variable '",var.names[i],"'",call.=F)
       }
@@ -885,9 +921,9 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   #
   #
   if(is.null(unit)) {
-    pval <- adfOneTest(modOK$residuals)$p.value
+    pval <- oneTest(modOK$residuals)$p.value["adf"]
     } else {
-    pval <- adfOneTest(modOK$residuals, unit=data[,unit])$p.value["(combined)"]
+    pval <- oneTest(modOK$residuals, unit=data[,unit])$p.value["(combined)","adf"]
     }
   if(pval>0.05) warning("ADF test on residuals is not significant: regression could be spurious", call.=F)
   modOK
@@ -1190,12 +1226,14 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
   if(is.null(main)) main <- xOK
   #tquan <- qt((1+conf)/2,x$df.residual)
   tquan <- qnorm((1+conf)/2)
-  mfrow0 <- par()$mfrow
+  #mfrow0 <- par()$mfrow
+  oldpar <- par(no.readonly=T)
+  on.exit(par(oldpar))
   par(mfrow=n2mfrow(length(xOK)))
   for(i in 1:length(xOK)) {
     ind <- which(xnam==xOK[i])
     if(length(main)>=i) imain <- main[i] else imain <- ""
     makePlot(ind,imain)
     }
-  par(mfrow=mfrow0)
+  #par(mfrow=mfrow0)
   }

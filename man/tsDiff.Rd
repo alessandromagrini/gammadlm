@@ -25,7 +25,7 @@ If the parameter of the Box-Cox transformation is set to 0 for a non-negative va
 %\details{}
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 %\references{}
-\seealso{\link{adfTest}.}
+\seealso{\link{unirootTest}.}
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
