@@ -33,7 +33,7 @@ mydata <- USstock[which(USstock$Date>="2020-04-01"),]  ## select data from April
 ```
 Trasform the variables in log return to achieve weak stationarity
 ```
-mydataLR <- tsDiff(time="Date", data=mydata, log=TRUE, ndiff=1)
+mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
 ```
 Estimation with fixed values of delta and lambda parameters (1 step of ordinary least squares):
 ```
