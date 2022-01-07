@@ -3,7 +3,7 @@
 \title{Estimation of a Gamma distributed-lag model}
 \description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. A panel structure can be taken into account.}
 \usage{gammadlm(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
-  offset=rep(0,length(x.names)), control=list(nstart=50, grid.by=0.05,
+  offset=rep(0,length(x.names)), add.intercept=TRUE, control=list(nstart=50,
   delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE)}
 \arguments{
   \item{y.name}{Character including the name of the response variable, that must be a quantitative variable. If a vector with length greater than 1 is provided, only the first element is considered.}  
@@ -12,14 +12,12 @@
   \item{unit}{Character containing the name of the units of observation in case of a panel structure. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in the model. Variables in \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time} cannot contain missing values.}
-  %\item{par}{} %%%
   \item{offset}{Numerical vector indicating, in order, the offset for each variable in \code{x.names}. Default is 0. If the name of the response variable is indicated in \code{x.names} and its offset is less than 1, then it will be set automatically to 1.}
+  \item{add.intercept}{Logical value indicating whether the intercept should be included in the model. Default is \code{TRUE}.}
   \item{control}{A list including control options for the hill climbing algorithm.
    \itemize{
     \item{\code{nstart}: }{positive integer value indicating the number of restarts. If equal to 1, then all the shape parameters are initialized to value 0. Default is 50.}
-    %\item{\code{max.try}: }{}
-    %\item{\code{max.start}: }{} 
-    \item{\code{grid.by}: }{positive value no greater than 0.1, indicating the increment in grid search. Default is 0.05.}
+    %\item{\code{grid.by}: }{positive value no greater than 0.1, indicating the increment in grid search. Default is 0.05.}
     \item{\code{delta.lim}: }{a named list with one component for each variable in \code{x.names}, that must be either a numerical vector of length 2 indicating the minimum and the maximum value of \eqn{\delta}, or a numerical value indicating the exact value of \eqn{\delta}. If there is no component in \code{delta.lim} for a certain variable in \code{x.names}, then the theoretical range [0,1) is assumed for \eqn{\delta}.
 %If, for an explanatory variable, minimum and maximum values coincide, then \eqn{\delta} parameter is kept fixed at their values.
 }
@@ -27,27 +25,33 @@
     \item{\code{peak.lim}: }{the same as \code{delta.lim}, but it is about the peak of the lag distributions.}
     \item{\code{length.lim}: }{the same as \code{delta.lim}, but it is about the 99.9th percentile of the lag distributions.}
     }}
-  \item{quiet}{Logical value indicating whether prompt messages should be displayed during the execution. Default is \code{TRUE}.}
+  \item{quiet}{Logical value indicating whether prompt messages should be suppressed. Default is \code{FALSE}.}
   }
 \value{An object of class \code{lm} and \code{gammadlm}, including all the components of an object of class \code{lm} plus the following components:
 \itemize{
   \item{\code{offset}: }{vector including the offset of the lag distributions;}
+  \item{\code{add.intercept}: }{logical value indicating whether the model includes the intercept;}
   \item{\code{par}: }{matrix including the shape parameters for each variable in \code{x.names} (by column);}
-  \item{\code{variables}: }{list including the names of the variables provided to arguments \code{y.name}, \code{x.names} and \code{z.names}.}
-  \item{\code{unit.id}: }{list including the row names of the observations for each unit.}
+  \item{\code{variables}: }{list including the names of the variables provided to arguments \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time}.}
+  \item{\code{unit.id}: }{list including the row names of the observations for each unit. \code{NULL} if \code{unit} is \code{NULL}.}
   \item{\code{data}: }{data.frame including the data used for parameter estimation.}
   \item{\code{local.max}: }{list including all the models fitted at each restart.}
   }
 }
 \details{
 All S3 methods for class \code{lm} are also available for class \code{gammadlm}.
-Furthermore, method \link{lagCoef} can be used to see the estimated dynamic coefficients, and method \code{plot} to display the estimated lag distributions.
-%and method \code{residuals} to obtain graphical model diagnostics.
+The following S3 methods operate differently than usual:
+
+- \code{plot} displays the estimated lag distributions;
+
+- when \code{unit} is not \code{NULL}, \code{residuals} and \code{fitted} return, respectively, a list including residuals and fitted values for each unit.
+
+Furthermore, method \link{lagCoef} can be used to see the estimated dynamic coefficients.
 }
 \note{
 Weak stationarity of all time series (expected value and autocorrelation function independent of time) is a basic assumption of the model.
-However, it is sufficient that all time series do not contain unit roots to get valid results (Granger \& Newbold, 1974).
-Before calling the function \link{gammadlm}, the user is strongly recommended to check the absence of unit roots in each time series through the function \link{unirootTest}, and to apply differencing through the function \link{tsDiff} to each time series with unit roots.
+However, in order to get valid results, it is sufficient that all time series do not contain unit roots (Granger & Newbold, 1974).
+Before calling the function \link{gammadlm}, the user is strongly recommended to check the absence of unit roots in each time series through the function \link{unirootTest}, and to apply differencing through the function \link{preProcess} to each time series with unit roots.
 
 Function \link{gammadlm} automatically checks the absence of unit roots in the residuals and returns a warning in case of failure.
 
@@ -70,7 +74,7 @@ W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasti
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
-mydataLR <- tsDiff(time="Date", data=mydata, box.cox=0, ndiff=1)
+mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
 
 ## estimation with fixed values of delta and lambda parameters: 1-step OLS
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)

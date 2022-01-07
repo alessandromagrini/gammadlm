@@ -46,7 +46,7 @@ D. Kwiatkowski, P. C. B. Phillips, P. Schmidt, and Y. Shin (1992). Testing the n
 
 %S. Ng, and W. P. Perron (2001). Unit Root Tests in ARMA Models with Data-Dependent Methods for the Selection of the Truncation Lag. \emph{Journal of the American Statistical Association}, 90(429): 268-281.
 }
-\seealso{\link{tsDiff}.}
+\seealso{\link{preProcess}.}
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]

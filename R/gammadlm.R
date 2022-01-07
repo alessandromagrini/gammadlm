@@ -11,14 +11,386 @@
 #
 
 
+# log functions (auxiliary)
+logFun <- function(x) {
+  ind <- which(x<=0)
+  if(length(ind)>0) {
+    x[ind] <- min(x[setdiff(1:length(x),ind)])/2
+    }
+  log(x)
+  }
+
 # apply box-cox transformation (auxiliary)
 makeBoxCox <- function(x, par) {
   if(par==1) {
     x
     } else if(par==0) {
-    log(x)  
+    logFun(x)  
     } else {
     (x^par-1)/par  
+    }
+  }
+
+# linear interpolation (auxiliary)
+linInterp <- function(x) {
+  if(sum(!is.na(x))>=2) {
+    approx(x, xout=1:length(x))$y
+    } else {
+    x
+    }
+  }
+
+# unit root test for one variabile (auxiliary)
+oneTest <- function(x, unit=NULL, max.lag=NULL) {
+  if(missing(x)) stop("Argument 'x' is missing",call.=F)
+  if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector",call.=F)
+  if(is.null(unit)) {
+    x <- na.omit(linInterp(x))
+    n <- length(x)
+    if(n<5) stop("At least 5 observations are required",call.=F)
+    } else {
+    gr <- levels(factor(unit))
+    nvet <- c()
+    for(w in gr) {
+      ind <- which(unit==w)
+      x[ind] <- linInterp(x[ind])
+      nvet[w] <- length(na.omit(x[ind]))
+      if(nvet[w]<5) stop("At least 5 observations are required for each unit",call.=F)
+      }
+    isOK <- which(!is.na(x))
+    x <- x[isOK]
+    unit <- unit[isOK]
+    n <- min(nvet)
+    }
+  if(is.null(max.lag)) {
+    #max.lag <- min(n-3,trunc((n-1)^(1/3)))
+    max.lag <- round(sqrt(n))
+    } else {
+    if(length(max.lag)>1) max.lag <- max.lag[1]
+    if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
+    if(max.lag>n-3) {
+      max.lag <- n-3
+      #warning("Argument 'max.lag' was set to ",n-3)
+      }
+    }
+  if(is.null(unit)) {
+    res <- res1 <- adfFun(x=x, max.lag=max.lag)
+    res2 <- kpssFun(x=x, max.lag=max.lag)
+    for(i in 1:3) {
+      res[[i]] <- c(adf=res1[[i]],kpss=res2[[i]])
+      }
+    } else {
+    gr <- levels(factor(unit))
+    res1 <- res2 <- vector("list",length=3)
+    for(w in gr) {
+      ind <- which(unit==w)
+      iadf <- adfFun(x=x[ind], max.lag=max.lag)
+      ikpss <- kpssFun(x=x[ind], max.lag=max.lag)
+      for(j in 1:length(res1)) {
+        res1[[j]] <- c(res1[[j]],iadf[[j]])
+        res2[[j]] <- c(res2[[j]],ikpss[[j]])
+        }
+      }
+    #
+    pvalComb <- function(x) {
+      m <- length(x)
+      logp <- qnorm(x)
+      rhat <- 1-var(logp)
+      rstar <- max(rhat,-1/(m-1))
+      auxz <- sum(logp)/sqrt(m*(1+(m-1)*(rstar+0.2*sqrt(2/(m+1))*(1-rstar))))
+      #auxz <- sum(logp)/sqrt(m)
+      c(x,'(combined)'=2*pnorm(-abs(auxz)))
+      }
+    #
+    res1 <- lapply(res1, function(z){names(z)<-gr; z})
+    names(res1) <- names(iadf)
+    res1$p.value <- pvalComb(res1$p.value)
+    res2 <- lapply(res2, function(z){names(z)<-gr; z})
+    names(res2) <- names(ikpss)
+    res2$p.value <- pvalComb(res2$p.value)
+    res <- res1
+    for(i in 1:3) {
+      res[[i]] <- cbind(adf=res1[[i]],kpss=res2[[i]])
+      }
+    }
+  res
+  }
+
+# function for adf test (auxiliary)  
+adfFun <- function(x, max.lag) {
+  #
+  doADF <- function(k) {
+    y <- diff(x)
+    n <- length(y)
+    k <- k+1
+    z <- embed(y,k)
+    yt <- z[,1]
+    xt1 <- x[k:n]
+    tt <- k:n
+    if(k>1) {
+      yt1 <- z[,2:k,drop=F]
+      res <- lm(yt~xt1+tt+yt1)
+      } else {
+      res <- lm(yt~xt1+tt)
+      }
+    res.sum <- summary(res)$coefficients
+    if(nrow(res.sum)>=2) {
+      STAT <- res.sum[2,1]/res.sum[2,2]
+      table <- -1*cbind(c(4.38, 4.15, 4.04, 3.99, 3.98, 3.96),
+                        c(3.95, 3.8, 3.73, 3.69, 3.68, 3.66),
+                        c(3.6, 3.5, 3.45, 3.43, 3.42, 3.41),
+                        c(3.24, 3.18, 3.15, 3.13, 3.13, 3.12),
+                        c(1.14, 1.19, 1.22, 1.23, 1.24, 1.25),
+                        c(0.8, 0.87, 0.9, 0.92, 0.93, 0.94),
+                        c(0.5, 0.58, 0.62, 0.64, 0.65, 0.66),
+                        c(0.15, 0.24, 0.28, 0.31, 0.32, 0.33))
+      tablen <- dim(table)[2]
+      tableT <- c(25, 50, 100, 250, 500, 1e+05)
+      tablep <- c(0.01, 0.025, 0.05, 0.1, 0.9, 0.95, 0.975, 0.99)
+      tableipl <- numeric(tablen)
+      for(i in (1:tablen)) {
+        tableipl[i] <- approx(tableT,table[,i],n,rule=2)$y
+        }
+      PVAL <- approx(tableipl,tablep,STAT,rule=2)$y
+      } else {
+      STAT <- PVAL <- NA
+      }
+    c(STAT,PVAL)
+    }
+  if(max.lag>0) {
+    k <- ar(x,order.max=max.lag)$order
+    } else {
+    k <- 0
+    }
+  res <- doADF(k)
+  list(statistic=res[1], lag.selected=k, p.value=res[2])
+  }
+
+# function for kpss test (internal use only)
+kpssFun <- function(x, max.lag) {
+  #
+  doKPSS <- function(lag) {
+    n <- length(x)
+    #if(trend==T) {
+    t <- 1:n
+    e <- residuals.lm(lm(x ~ t))
+    table <- c(0.216, 0.176, 0.146, 0.119)
+    #  } else {
+    #  e <- residuals.lm(lm(x ~ 1))
+    #  table <- c(0.739, 0.574, 0.463, 0.347)
+    #  }
+    tablep <- c(0.01, 0.025, 0.05, 0.1)
+    s <- cumsum(e)
+    eta <- sum(s^2)/(n^2)
+    s2 <- sum(e^2)/n
+    k <- 0
+    for(i in 1:lag) {
+      ik <- 0
+      for(j in (i+1):n) {
+        ik <- ik+e[j]*e[j-i]
+        }
+      k <- k+(1-i/(lag+1))*ik
+      }
+    STAT <- eta/(s2+2*k/n)
+    PVAL <- approx(table,tablep,STAT,rule=2)$y
+    c(statistic=STAT, p.value=PVAL)
+    }
+  #
+  if(max.lag>0) {
+    k <- ar(x,order.max=max.lag)$order
+    } else {
+    k <- 0
+    }
+  res <- doKPSS(k)
+  list(statistic=unname(res[1]), lag.selected=k, p.value=unname(res[2]))
+  }
+
+# perform unit root test
+unirootTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
+  if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
+  #
+  is.dummy <- function(x) {
+    dom <- sort(unique(na.omit(x)))
+    length(dom)==2&dom[1]==0&dom[2]==1
+    }
+  if(is.null(var.names)) {
+    var.names <- setdiff(colnames(data),time)
+    if(length(var.names)==0) stop("No quantitative variable found")
+    x2del <- c()
+    for(i in 1:length(var.names)) {
+      if(!is.numeric(data[,var.names[i]])|is.dummy(data[,var.names[i]])) x2del <- c(x2del,var.names[i])
+      }
+    if(length(x2del)>0) var.names <- setdiff(var.names,x2del)
+    if(length(var.names)==0) stop("No quantitative variable found")
+    } else {
+    auxchk <- setdiff(var.names,colnames(data))  
+    if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+    #var.names <- setdiff(intersect(var.names,colnames(data)),time)
+    }
+  #
+  if(!is.null(time)) {
+    if(length(time)>1) time <- time[1]
+    if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' in argument 'time'")
+    if(time%in%var.names) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
+    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
+    }
+  #
+  testList <- list()
+  dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff, imputation=FALSE)
+  if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
+  for(i in 1:length(var.names)) {
+    iadf <- oneTest(x=dataD[,var.names[i]], unit=gr, max.lag=max.lag)
+    iadf$box.cox <- unname(attr(dataD,"box.cox")[var.names[i]])
+    iadf$ndiff <- unname(attr(dataD,"ndiff")[var.names[i]])
+    testList[[i]] <- iadf
+    }
+  names(testList) <- var.names
+  class(testList) <- "unirootTest"
+  testList
+  }
+
+# print method for class 'unirootTest'
+print.unirootTest <- function(x, ...) {
+  cat("p-values","\n")
+  cat("  ADF:  null hypothesis is 'unit root'","\n")
+  cat("  KPSS: null hypothesis is 'no unit roots'","\n")
+  tab <- sapply(x, function(z){
+    pval <- round(z$p.value,4)
+    if(is.matrix(pval)) pval["(combined)",] else pval
+    })
+  print(t(tab))
+  }
+
+# function for differencing (auxiliary)
+diffFun <- function(var.names, time, data, ndiff) {
+  newdat <- data
+  if(!is.null(time)) newdat <- newdat[order(newdat[,time]),]
+  n <- nrow(data)
+  for(i in 1:length(var.names)) {
+    if(ndiff[i]>0) {
+      idat <- linInterp(data[,var.names[i]])
+      newdat[,var.names[i]] <- idat-c(rep(NA,ndiff[i]),idat[1:(n-ndiff[i])])
+      } else {
+      newdat[,var.names[i]] <- data[,var.names[i]]
+      }
+    }
+  newdat
+  }
+
+# pre-processing
+preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
+  imputation=TRUE, em.control=list(nlags=NULL,tol=1e-4,maxit=1000,quiet=FALSE)) {
+  if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
+  #
+  is.dummy <- function(x) {
+    dom <- sort(unique(na.omit(x)))
+    length(dom)==2&dom[1]==0&dom[2]==1
+    }
+  if(is.null(var.names)) {
+    var.names <- setdiff(colnames(data),time)
+    if(length(var.names)==0) stop("No quantitative variable found")
+    x2del <- c()
+    for(i in 1:length(var.names)) {
+      if(!is.numeric(data[,var.names[i]])|is.dummy(data[,var.names[i]])) x2del <- c(x2del,var.names[i])
+      }
+    if(length(x2del)>0) var.names <- setdiff(var.names,x2del)
+    if(length(var.names)==0) stop("No quantitative variable found")
+    } else {
+    auxchk <- setdiff(var.names,colnames(data))  
+    if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+    #var.names <- setdiff(intersect(var.names,colnames(data)),time)
+    }
+  #
+  if(!is.null(time)) {
+    if(length(time)>1) time <- time[1]
+    if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' in argument 'time'")
+    if(time%in%var.names) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
+    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
+    }
+  #
+  if(!is.vector(box.cox) || !is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
+  if(length(box.cox)==1 & is.null(names(box.cox))) {
+    box.cox <- rep(box.cox,length(var.names))
+    names(box.cox) <- var.names
+    } else {
+    box.coxOK <- rep(1,length(var.names))
+    names(box.coxOK) <- var.names
+    box.coxOK[names(box.cox)] <- box.cox
+    box.cox <- box.coxOK[var.names]
+    }
+  #
+  if(!is.vector(ndiff) || !is.numeric(ndiff) || (sum(ndiff<0)>0 | sum(ndiff!=round(ndiff))>0)) stop("Argument 'ndiff' must be a non-negative integer value or vector")
+  if(length(ndiff)==1 & is.null(names(ndiff))) {
+    ndiff <- rep(ndiff,length(var.names))
+    names(ndiff) <- var.names
+    } else {
+    ndiffOK <- rep(0,length(var.names))
+    names(ndiffOK) <- var.names
+    ndiffOK[names(ndiff)] <- ndiff
+    ndiff <- ndiffOK[var.names]
+    } 
+  #
+  dataL <- data
+  for(i in 1:length(var.names)) {
+    ilam <- box.cox[var.names[i]]
+    if(ilam!=1 & sum(data[,var.names[i]]<0,na.rm=T)>0) {
+      box.cox[var.names[i]] <- ilam <- 1
+      warning("Box-Cox transformation not applied to variable '",var.names[i],"'",call.=F)
+      }
+    dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
+    }
+  #
+  if(is.null(unit)) {
+    dataD <- diffFun(var.names=var.names, time=time, data=dataL, ndiff=ndiff)
+    attr(dataD,"box.cox") <- box.cox
+    attr(dataD,"ndiff") <- ndiff
+    if(max(ndiff)>0) {
+      res <- dataD[setdiff(1:nrow(data),1:max(ndiff)),,drop=F]
+      } else {
+      res <- dataD
+      }
+    } else {
+    if(length(unit)>1) unit <- unit[1]
+    if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
+    if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
+    if(unit%in%var.names) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
+    dataD <- dataL
+    isNA <- c()
+    gr <- levels(factor(data[,unit]))
+    val0 <- matrix(nrow=length(gr),ncol=length(var.names))
+    rownames(val0) <- gr
+    colnames(val0) <- var.names
+    for(w in 1:length(gr)) {
+      ind <- which(data[,unit]==gr[w])
+      if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
+      dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
+      val0[w,] <- as.numeric(data[ind[1],var.names])
+      }
+    attr(dataD,"box.cox") <- box.cox
+    attr(dataD,"ndiff") <- ndiff
+    res <- dataD[setdiff(1:nrow(data),isNA),,drop=F]
+    }
+  res
+  if(imputation) {
+    nlags <- em.control$nlags[1]
+    if(!is.numeric(nlags)) {
+      nlags <- NULL
+      } else {
+      if(nlags<0) nlags <- NULL else nlags <- round(nlags)
+      }
+    tol <- em.control$tol[1]
+    if(!is.numeric(tol)|is.null(tol)) tol <- 1e-4
+    if(tol<=0) tol <- 1e-4
+    maxit <- em.control$maxit[1]
+    if(!is.numeric(maxit)|is.null(maxit)) maxit <- 1000
+    if(maxit<=0) maxit <- 1000 else maxit <- ceiling(maxit)
+    quiet <- em.control$quiet[1]
+    if(!is.logical(quiet)|is.null(quiet)) quiet <- FALSE
+    resI <- EMimput(x.names=var.names, unit=unit, time=time, data=res,
+      nlags=nlags,tol=tol,maxit=maxit,quiet=quiet)
+    resI$data.imputed
+    } else {
+    res
     }
   }
 
@@ -117,7 +489,7 @@ gammaKernel <- function(x, par, unit=NULL, offset=0, normalize=TRUE) {
   if(is.null(unit)) {
     gamkern(x=x, par=par, offset=offset, normalize=normalize)
     } else {
-    gr <- unique(na.omit(unit))
+    gr <- levels(factor(unit))
     res <- rep(NA,length(x))
     for(w in gr) {
       ind <- which(unit==w)
@@ -173,357 +545,23 @@ gammaQuantile <- function(prob, par, offset=0) {
   res
   }
 
-# perform unit root test
-unirootTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
-  if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
-  #
-  is.dummy <- function(x) {
-    dom <- sort(unique(na.omit(x)))
-    length(dom)==2&dom[1]==0&dom[2]==1
-    }
-  if(is.null(var.names)) {
-    var.names <- setdiff(colnames(data),time)
-    if(length(var.names)==0) stop("No quantitative variable found")
-    x2del <- c()
-    for(i in 1:length(var.names)) {
-      if(!is.numeric(data[,var.names[i]])|is.dummy(data[,var.names[i]])) x2del <- c(x2del,var.names[i])
-      }
-    if(length(x2del)>0) var.names <- setdiff(var.names,x2del)
-    if(length(var.names)==0) stop("No quantitative variable found")
-    } else {
-    auxchk <- setdiff(var.names,colnames(data))  
-    if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
-    #var.names <- setdiff(intersect(var.names,colnames(data)),time)
-    }
-  #
-  if(!is.null(time)) {
-    if(length(time)>1) time <- time[1]
-    if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' in argument 'time'")
-    if(time%in%var.names) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
-    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
-    }
-  #
-  testList <- list()
-  dataD <- tsDiff(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
-  if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
-  for(i in 1:length(var.names)) {
-    iadf <- oneTest(x=dataD[,var.names[i]], unit=gr, max.lag=max.lag)
-    iadf$box.cox <- unname(attr(dataD,"box.cox")[var.names[i]])
-    iadf$ndiff <- unname(attr(dataD,"ndiff")[var.names[i]])
-    testList[[i]] <- iadf
-    }
-  names(testList) <- var.names
-  class(testList) <- "unirootTest"
-  testList
-  }
-
-# print method for class 'unirootTest'
-print.unirootTest <- function(x, ...) {
-  cat("p-values","\n")
-  cat("  ADF:  null hypothesis is 'unit root'","\n")
-  cat("  KPSS: null hypothesis is 'no unit roots'","\n")
-  tab <- sapply(x, function(z){
-    pval <- round(z$p.value,4)
-    if(is.matrix(pval)) pval["(combined)",] else pval
-    })
-  print(t(tab))
-  }
-
-# linear interpolation (auxiliary)
-linInterp <- function(x) {
-  if(sum(!is.na(x))>=2) {
-    approx(x, xout=1:length(x))$y
-    } else {
-    x
-    }
-  }
-
-# unit root test for one variabile (auxiliary)
-oneTest <- function(x, unit=NULL, max.lag=NULL) {
-  if(missing(x)) stop("Argument 'x' is missing",call.=F)
-  if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector",call.=F)
-  if(is.null(unit)) {
-    x <- na.omit(linInterp(x))
-    n <- length(x)
-    if(n<5) stop("At least 5 observations are required",call.=F)
-    } else {
-    gr <- unique(na.omit(unit))
-    nvet <- c()
-    for(w in gr) {
-      ind <- which(unit==w)
-      x[ind] <- linInterp(x[ind])
-      nvet[w] <- length(na.omit(x[ind]))
-      if(nvet[w]<5) stop("At least 5 observations are required for each unit",call.=F)
-      }
-    isOK <- which(!is.na(x))
-    x <- x[isOK]
-    unit <- unit[isOK]
-    n <- min(nvet)
-    }
-  if(is.null(max.lag)) {
-    #max.lag <- min(n-3,trunc((n-1)^(1/3)))
-    max.lag <- round(sqrt(n))
-    } else {
-    if(length(max.lag)>1) max.lag <- max.lag[1]
-    if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
-    if(max.lag>n-3) {
-      max.lag <- n-3
-      #warning("Argument 'max.lag' was set to ",n-3)
-      }
-    }
-  if(is.null(unit)) {
-    res <- res1 <- adfFun(x=x, max.lag=max.lag)
-    res2 <- kpssFun(x=x, max.lag=max.lag)
-    for(i in 1:3) {
-      res[[i]] <- c(adf=res1[[i]],kpss=res2[[i]])
-      }
-    } else {
-    gr <- unique(na.omit(unit))
-    res1 <- res2 <- vector("list",length=3)
-    for(w in gr) {
-      ind <- which(unit==w)
-      iadf <- adfFun(x=x[ind], max.lag=max.lag)
-      ikpss <- kpssFun(x=x[ind], max.lag=max.lag)
-      for(j in 1:length(res1)) {
-        res1[[j]] <- c(res1[[j]],iadf[[j]])
-        res2[[j]] <- c(res2[[j]],ikpss[[j]])
-        }
-      }
-    #
-    pvalComb <- function(x) {
-      m <- length(x)
-      logp <- qnorm(x)
-      rhat <- 1-var(logp)
-      rstar <- max(rhat,-1/(m-1))
-      auxz <- sum(logp)/sqrt(m*(1+(m-1)*(rstar+0.2*sqrt(2/(m+1))*(1-rstar))))
-      #auxz <- sum(logp)/sqrt(m)
-      c(x,'(combined)'=2*pnorm(-abs(auxz)))
-      }
-    #
-    res1 <- lapply(res1, function(z){names(z)<-gr; z})
-    names(res1) <- names(iadf)
-    res1$p.value <- pvalComb(res1$p.value)
-    res2 <- lapply(res2, function(z){names(z)<-gr; z})
-    names(res2) <- names(ikpss)
-    res2$p.value <- pvalComb(res2$p.value)
-    res <- res1
-    for(i in 1:3) {
-      res[[i]] <- cbind(adf=res1[[i]],kpss=res2[[i]])
-      }
-    }
-  res
-  }
-
-# function for adf test (auxiliary)  
-adfFun <- function(x, max.lag) {
-  #
-  doADF <- function(k) {
-    y <- diff(x)
-    n <- length(y)
-    k <- k+1
-    z <- embed(y,k)
-    yt <- z[,1]
-    xt1 <- x[k:n]
-    tt <- k:n
-    if(k>1) {
-      yt1 <- z[,2:k,drop=F]
-      res <- lm(yt~xt1+tt+yt1)
-      } else {
-      res <- lm(yt~xt1+tt)
-      }
-    res.sum <- summary(res)$coefficients
-    if(nrow(res.sum)>=2) {
-      STAT <- res.sum[2,1]/res.sum[2,2]
-      table <- -1*cbind(c(4.38, 4.15, 4.04, 3.99, 3.98, 3.96),
-                        c(3.95, 3.8, 3.73, 3.69, 3.68, 3.66),
-                        c(3.6, 3.5, 3.45, 3.43, 3.42, 3.41),
-                        c(3.24, 3.18, 3.15, 3.13, 3.13, 3.12),
-                        c(1.14, 1.19, 1.22, 1.23, 1.24, 1.25),
-                        c(0.8, 0.87, 0.9, 0.92, 0.93, 0.94),
-                        c(0.5, 0.58, 0.62, 0.64, 0.65, 0.66),
-                        c(0.15, 0.24, 0.28, 0.31, 0.32, 0.33))
-      tablen <- dim(table)[2]
-      tableT <- c(25, 50, 100, 250, 500, 1e+05)
-      tablep <- c(0.01, 0.025, 0.05, 0.1, 0.9, 0.95, 0.975, 0.99)
-      tableipl <- numeric(tablen)
-      for(i in (1:tablen)) {
-        tableipl[i] <- approx(tableT,table[,i],n,rule=2)$y
-        }
-      PVAL <- approx(tableipl,tablep,STAT,rule=2)$y
-      } else {
-      STAT <- PVAL <- NA
-      }
-    c(STAT,PVAL)
-    }
-  if(max.lag>0) {
-    k <- ar(x,order.max=max.lag)$order
-    } else {
-    k <- 0
-    }
-  res <- doADF(k)
-  list(statistic=res[1], lag.selected=k, p.value=res[2])
-  }
-
-# function for kpss test (internal use only)
-kpssFun <- function(x, max.lag) {
-  #
-  doKPSS <- function(lag) {
-    n <- length(x)
-    #if(trend==T) {
-      t <- 1:n
-      e <- residuals.lm(lm(x ~ t))
-      table <- c(0.216, 0.176, 0.146, 0.119)
-    #  } else {
-    #  e <- residuals.lm(lm(x ~ 1))
-    #  table <- c(0.739, 0.574, 0.463, 0.347)
-    #  }
-    tablep <- c(0.01, 0.025, 0.05, 0.1)
-    s <- cumsum(e)
-    eta <- sum(s^2)/(n^2)
-    s2 <- sum(e^2)/n
-    k <- 0
-    for(i in 1:lag) {
-      ik <- 0
-      for(j in (i+1):n) {
-        ik <- ik+e[j]*e[j-i]
-        }
-      k <- k+(1-i/(lag+1))*ik
-      }
-    STAT <- eta/(s2+2*k/n)
-    PVAL <- approx(table,tablep,STAT,rule=2)$y
-    c(statistic=STAT, p.value=PVAL)
-    }
-  #
-  if(max.lag>0) {
-    k <- ar(x,order.max=max.lag)$order
-    } else {
-    k <- 0
-    }
-  res <- doKPSS(k)
-  list(statistic=unname(res[1]), lag.selected=k, p.value=unname(res[2]))
-  }
-
-# apply differencing
-tsDiff <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0) {
-  if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
-  #
-  is.dummy <- function(x) {
-    dom <- sort(unique(na.omit(x)))
-    length(dom)==2&dom[1]==0&dom[2]==1
-    }
-  if(is.null(var.names)) {
-    var.names <- setdiff(colnames(data),time)
-    if(length(var.names)==0) stop("No quantitative variable found")
-    x2del <- c()
-    for(i in 1:length(var.names)) {
-      if(!is.numeric(data[,var.names[i]])|is.dummy(data[,var.names[i]])) x2del <- c(x2del,var.names[i])
-      }
-    if(length(x2del)>0) var.names <- setdiff(var.names,x2del)
-    if(length(var.names)==0) stop("No quantitative variable found")
-    } else {
-    auxchk <- setdiff(var.names,colnames(data))  
-    if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
-    #var.names <- setdiff(intersect(var.names,colnames(data)),time)
-    }
-  #
-  if(!is.null(time)) {
-    if(length(time)>1) time <- time[1]
-    if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' in argument 'time'")
-    if(time%in%var.names) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
-    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
-    }
-  #
-  if(!is.vector(box.cox) || !is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
-  if(length(box.cox)==1 & is.null(names(box.cox))) {
-    box.cox <- rep(box.cox,length(var.names))
-    names(box.cox) <- var.names
-    } else {
-    box.coxOK <- rep(1,length(var.names))
-    names(box.coxOK) <- var.names
-    box.coxOK[names(box.cox)] <- box.cox
-    box.cox <- box.coxOK[var.names]
-    }
-  #
-  if(!is.vector(ndiff) || !is.numeric(ndiff) || (sum(ndiff<0)>0 | sum(ndiff!=round(ndiff))>0)) stop("Argument 'ndiff' must be a non-negative integer value or vector")
-  if(length(ndiff)==1 & is.null(names(ndiff))) {
-    ndiff <- rep(ndiff,length(var.names))
-    names(ndiff) <- var.names
-    } else {
-    ndiffOK <- rep(0,length(var.names))
-    names(ndiffOK) <- var.names
-    ndiffOK[names(ndiff)] <- ndiff
-    ndiff <- ndiffOK[var.names]
-    } 
-  #
-  dataL <- data
-  for(i in 1:length(var.names)) {
-    ilam <- box.cox[var.names[i]]
-    if(ilam==0 & sum(data[,var.names[i]]<=0,na.rm=T)>0) {
-      box.cox[var.names[i]] <- ilam <- 1
-      warning("Logarithmic transformation not applied to variable '",var.names[i],"'",call.=F)
-      }
-    dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
-    }
-  #
-  if(is.null(unit)) {
-    dataD <- diffFun(var.names=var.names, time=time, data=dataL, ndiff=ndiff)
-    attr(dataD,"inits") <- unlist(data[1,var.names])
-    attr(dataD,"box.cox") <- box.cox
-    attr(dataD,"ndiff") <- ndiff
-    if(max(ndiff)>0) {
-      dataD[setdiff(1:nrow(data),1:max(ndiff)),]
-      } else {
-      dataD
-      }
-    } else {
-    if(length(unit)>1) unit <- unit[1]
-    if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
-    if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
-    if(unit%in%var.names) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
-    dataD <- dataL
-    isNA <- c()
-    gr <- unique(na.omit(data[,unit]))
-    val0 <- matrix(nrow=length(gr),ncol=length(var.names))
-    rownames(val0) <- gr
-    colnames(val0) <- var.names
-    for(w in 1:length(gr)) {
-      ind <- which(data[,unit]==gr[w])
-      if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
-      dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
-      val0[w,] <- as.numeric(data[ind[1],var.names])
-      }
-    attr(dataD,"inits") <- val0
-    attr(dataD,"box.cox") <- box.cox
-    attr(dataD,"ndiff") <- ndiff
-    dataD[setdiff(1:nrow(data),isNA),]
-    }
-  }
-
-# function for differencing (auxiliary)
-diffFun <- function(var.names, time, data, ndiff) {
-  newdat <- data
-  if(!is.null(time)) newdat <- newdat[order(newdat[,time]),]
-  n <- nrow(data)
-  for(i in 1:length(var.names)) {
-    idat <- data[,var.names[i]]
-    if(ndiff[i]>0) {
-      newdat[,var.names[i]] <- idat-c(rep(NA,ndiff[i]),idat[1:(n-ndiff[i])])
-      } else {
-      newdat[,var.names[i]] <- idat
-      }
-    }
-  newdat
-  }
-
-# fit ols con gamma lag (auxiliary)
-gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize) {
+# fit ols with gamma lag (auxiliary)
+gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize, add.intercept) {
   p <- length(x.names)
   if(normalize) normstr <- "" else normstr <- paste(",normalize=",normalize,sep="")
   if(is.null(unit)) {
-    form0 <- paste(y.name," ~ ",sep="")
+    if(add.intercept) {
+      form0 <- paste(y.name," ~ ",sep="")
+      } else {
+      form0 <- paste(y.name," ~ -1+",sep="")
+      }
     gstr <- ""
     } else {
-    form0 <- paste(y.name," ~ -1+",unit,"+",sep="")
+    if(add.intercept) {
+      form0 <- paste(y.name," ~ -1+",unit,"+",sep="")
+      } else {
+      form0 <- paste(y.name," ~ -1+",sep="")
+      }
     gstr <- paste(",unit=",unit,sep="")
     }
   for(i in 1:p) {
@@ -541,6 +579,7 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
   rownames(par) <- c("delta","lambda")
   mod$par <- par
   mod$offset <- offset
+  mod$add.intercept <- add.intercept
   #
   #rownames(par) <- c("delta","lambda")
   #parlist <- list()
@@ -548,7 +587,7 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
   #names(parlist) <- x.names
   #mod$par <- parlist
   #
-  mod$variables <- list(y.name=y.name,x.names=x.names,z.names=z.names)
+  mod$variables <- list(y.name=y.name,x.names=x.names,z.names=z.names,unit=unit)
   if(is.null(unit)) {
     idg <- NULL
     } else {
@@ -651,7 +690,7 @@ visitFun <- function(par, par.list) {
   }
 
 # function for hill climbing (auxiliary)
-gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by) {
+gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by, add.intercept) {
   p <- length(x.names)
   n <- nrow(data)
   logn <- log(n)
@@ -671,7 +710,7 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
         check0 <- visitFun(ijpar, visitList)
         if(check0==0) {
           visitList <- c(visitList,list(ijpar))
-          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F)
+          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F, add.intercept=add.intercept)
           ijrss <- sum(ijm$residuals^2)
           testL <- c(testL,list(ijpar))
           #ijsign <- sign(ijm$coef[-1])   <------ gestire constraint segno
@@ -699,7 +738,7 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
       }
     }
   #parOK <- modOK$par
-  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T)
+  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T, add.intercept=add.intercept)
   list(model=modFinal,par.tested=testL)
   }
 
@@ -724,9 +763,8 @@ optFormat <- function(optList, nomi, val) {
   }
 
 # MASTER FUNCTION
-gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)),
-  control=list(nstart=50, grid.by=0.05, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL),
-  quiet=FALSE) {
+gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)), add.intercept=TRUE,
+  control=list(nstart=50, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
   #
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
@@ -764,6 +802,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(is.null(unit)) {
     if(!is.null(time)) data <- data[order(data[,time]),]
     } else {
+    #data[,unit] <- factor(data[,unit])
     if(length(unit)>1) unit <- unit[1]
     if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
     if(unit%in%y.name) stop("Variable '",unit,"' appears in both arguments 'y.name' and 'unit'")
@@ -771,7 +810,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     if(unit%in%z.names) stop("Variable '",unit,"' appears in both arguments 'z.names' and 'unit'")
     if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
     if(!is.null(time)) {
-      gr <- unique(na.omit(unit))
+      gr <- levels(factor(unit))
       for(w in gr) {
         ind <- which(data[,unit]==w)
         idat <- data[ind,]
@@ -788,10 +827,11 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   #if(is.null(max.try)) max.try <- 50
   #max.start <- control$max.start
   #if(is.null(max.start)) max.start <- max.try*10
-  grid.by <- control$grid.by
-  if(is.null(grid.by)) grid.by <- 0.05
-  if(length(grid.by)>1) grid.by <- grid.by[1]
-  if(!is.numeric(grid.by) || grid.by<=0 || grid.by>0.1) stop("Argument 'grid.by' must be a positive value no greater than 0.1")
+  #grid.by <- control$grid.by
+  #if(is.null(grid.by)) grid.by <- 0.05
+  #if(length(grid.by)>1) grid.by <- grid.by[1]
+  #if(!is.numeric(grid.by) || grid.by<=0 || grid.by>0.1) stop("Argument 'grid.by' must be a positive value no greater than 0.1")
+  grid.by <- 0.05
   delta.lim <- control$delta.lim
   lambda.lim <- control$lambda.lim
   peak.lim <- control$peak.lim
@@ -814,7 +854,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     par <- NULL
     }
   if(!is.null(par)) {
-    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=data, normalize=T)
+    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=data, normalize=T, add.intercept=add.intercept)
     } else {
     p <- length(x.names)
     peak.lim <- optFormat(peak.lim, x.names, c(0,Inf))
@@ -843,7 +883,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
         ini0 <- matrix(0,nrow=2,ncol=length(x.names))
         gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
                          offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-                         sign=sign, grid.by=grid.by)
+                         sign=sign, grid.by=grid.by, add.intercept=add.intercept)
         modOK <- gs0$model
         #modOK$local.max <- NULL
         }
@@ -858,7 +898,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
         if(!is.null(ini0)) {
           gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
                            offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-                           sign=sign, grid.by=grid.by)
+                           sign=sign, grid.by=grid.by, add.intercept=add.intercept)
           } else {
           gs0 <- NULL
           stopped <- 2
@@ -996,32 +1036,9 @@ arTest <- function(resid, max.order=NULL) {
   list(order=pOK,ar=bhat,var=summary(mOK)$sigma^2)
   }
 
-# white test (auxiliary)
-whitest <- function(Xmat, resid, max.degree) {
-  n <- length(resid)
-  p <- ncol(Xmat)-1
-  res2 <- resid^2
-  if(max.degree>1) {
-    auxmat <- Xmat[,-1]
-    for(i in 2:max.degree) {
-      if((1+p*i)/n<=2/3) Xmat <- cbind(Xmat,auxmat^i)
-      }
-    }
-  m0 <- lm(res2~Xmat)
-  fstat <- summary(m0)$fstatistic
-  pval <- pf(fstat[1],fstat[2],fstat[3])
-  c(fstat,p.value=1-unname(pval))
-  }
-
 # hac covariance matrix (auxiliary)
 hacCalc <- function(Xmat, resid, uS=NULL, unitID=NULL) {
-  #
-  #max.degree <- 3  ## <----- max degree for white test
-  #wtest <- whitest(Xmat=Xmat, resid=resid, max.degree=max.degree)
-  #homo <- wtest["p.value"]>0.05
-  #
   homo <- ar(resid^2)$order==0
-  #
   if(is.null(uS)) uS <- solve(t(Xmat)%*%Xmat)
   if(is.null(unitID)) {
     max.lag <- ar(resid)$order
@@ -1105,6 +1122,11 @@ lagCoef <- function(x, cumulative=FALSE, max.lag=NULL, max.quantile=0.999) {
   gpar <- x$par
   offs <- x$offset
   p <- ncol(gpar)
+  if(x$add.intercept) {
+    n_alpha <- ifelse(is.null(x$variables$unit),1,length(x$unit.id))
+    } else {
+    n_alpha <- 0
+    }
   Smat <- vcov(x)
   res <- vector("list",length=p)
   names(res) <- x$variables$x.names
@@ -1116,8 +1138,8 @@ lagCoef <- function(x, cumulative=FALSE, max.lag=NULL, max.quantile=0.999) {
       }
     ires <- data.frame(matrix(nrow=imaxlag+1,ncol=2))
     lagwei <- gammaWeights(0:imaxlag, par=gpar[,i], offset=offs[i], normalize=T)
-    ires[,1] <- x$coef[i+1]*lagwei
-    ires[,2] <- sqrt(Smat[i+1,i+1])*lagwei
+    ires[,1] <- x$coef[i+n_alpha]*lagwei
+    ires[,2] <- sqrt(Smat[i+n_alpha,i+n_alpha])*lagwei
     rownames(ires) <- 0:imaxlag
     colnames(ires) <- c("Estimate","Std. Error")
     if(cumulative==F) {
@@ -1175,8 +1197,8 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
       auxdx <- which(lseq==min(lseq[which(lseq>=offs)]))
       lagwei <- c(lagwei[1:auxsx],1,lagwei[auxdx:(length(lagwei)-1)])
       }
-    bcoef <- x$coef[i+1]*lagwei
-    bcoef_se <- sqrt(Smat[i+1,i+1])*lagwei
+    bcoef <- x$coef[i+n_alpha]*lagwei
+    bcoef_se <- sqrt(Smat[i+n_alpha,i+n_alpha])*lagwei
     auxinf <- which(abs(bcoef_se)==Inf|is.na(abs(bcoef_se)))
     if(length(auxinf)>0) {
       auxbse <- bcoef_se
@@ -1195,17 +1217,12 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
     #abline(h=0,lty=3,col=1)
     lines(lseq,lagco[,1])
     if(add.legend) {
-      auxw <- gammaWeights(0:(xlim[2]-1), par=gpar, offset=offs, normalize=T)
-      bcum <- x$coef[i+1]*sum(auxw)
-      auxse <- sqrt(Smat[i+1,i+1])*auxw
-      bcum_se <- sqrt(sum(auxse%*%t(auxse)))
-      bcumco <- cbind(bcum,bcum-tquan*bcum_se,bcum+tquan*bcum_se)
+      bcum <- x$coef[i+n_alpha]
+      bcum_se <- sqrt(Smat[i+n_alpha,i+n_alpha])
+      bcumco <- c(bcum,bcum-tquan*bcum_se,bcum+tquan*bcum_se)
       if(is.null(cex.legend)) cex.legend <- 1
       bcumcoOK <- signif(bcumco)
-      #siglags <- which(abs(bcoef/bcoef_se)>tquan)-1
-      legtxt <- paste(#"Significant lags: ",min(siglags)," to ",max(siglags),"\n",
-                      #", peak at ",ifelse(gpar[2]>0,round(gpar[1]/(gpar[1]-1)/log(gpar[2])-1,1),0)+offs,"\n",
-                      "Cumulative coefficient: ",round(bcumcoOK[1],digits),"\n",
+      legtxt <- paste("Cumulative coefficient: ",round(bcumcoOK[1],digits),"\n",
                       "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
       legend("topright",legend=legtxt,cex=cex.legend,bty="n")
       }
@@ -1223,6 +1240,11 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
   if(is.null(ylab)) ylab <- "Coefficient"
   if(is.null(xlab)) xlab <- "Time lag"
   Smat <- vcov(x)
+  if(x$add.intercept) {
+    n_alpha <- ifelse(is.null(x$variables$unit),1,length(x$unit.id))
+    } else {
+    n_alpha <- 0
+    }
   if(is.null(main)) main <- xOK
   #tquan <- qt((1+conf)/2,x$df.residual)
   tquan <- qnorm((1+conf)/2)
@@ -1236,4 +1258,185 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
     makePlot(ind,imain)
     }
   #par(mfrow=mfrow0)
+  }
+
+# fitted method for class 'gammadlm'
+fitted.gammadlm <- function(object, ...) {
+  if(is.null(object$variables$unit)) {
+    object$fitted.values
+    } else {
+    lapply(object$unit.id, function(x) {
+      object$fitted.values[x]
+      })
+    }
+  }
+
+# residuals method for class 'gammadlm'
+residuals.gammadlm <- function(object, ...) {
+  if(is.null(object$variables$unit)) {
+    object$residuals
+    } else {
+    lapply(object$unit.id, function(x) {
+      object$residuals[x]
+      })
+    }
+  }
+
+
+############################################################
+
+
+# generate lags (auxiliary)
+LAG <- function(x, p, unit=NULL, ...) {
+  if(p>0) {
+    #
+    lfun <- function(v) {
+      v0 <- rep(0,p)
+      n <- length(v)
+      res <- matrix(nrow=n,ncol=p)
+      for(i in 1:p) {
+        #res[,i] <- c(rep(NA, i), v[1:(n-i)])
+        res[,i] <- c(v0[(p-i+1):p], v[1:(n-i)])
+        }
+      colnames(res) <- 1:p
+      res
+      }
+    #
+    if(is.null(unit)) {
+      lfun(x)
+      } else {
+      res <- matrix(nrow=length(x),ncol=p)
+      gr <- levels(factor(unit))
+      for(i in 1:length(gr)) {
+        ind <- which(unit==gr[i])
+        res[ind,] <- lfun(x[ind])
+        }
+      colnames(res) <- 1:p
+      res
+      }
+    }
+  }
+
+# fit a single regression (auxiliary)
+regFit <- function(y.name, x.names, lags, data, unit) {
+  nomi <- c(y.name,x.names)
+  names(lags) <- nomi
+  if(is.null(unit)) {
+    xstr <- c()
+    for(i in 1:length(nomi)) {
+      if(lags[i]>=1) {
+        xstr <- c(xstr, paste("LAG(",nomi[i],",",lags[i],")", sep=""))
+        }
+      }
+    if(length(xstr)>0) {
+      form <- formula(paste(y.name,"~",paste(xstr, collapse="+"), sep=""))
+      } else {
+      form <- formula(paste(y.name,"~1", sep=""))
+      }
+    } else {
+    xstr <- c()
+    for(i in 1:length(nomi)) {
+      if(lags[i]>=1) {
+        xstr <- c(xstr, paste("LAG(",nomi[i],",",lags[i],",",unit,")", sep=""))
+        }
+      }
+    if(length(xstr)>0) {
+      form <- formula(paste(y.name,"~-1+factor(",unit,")+",paste(xstr, collapse="+"), sep=""))
+      } else {
+      form <- formula(paste(y.name,"~-1+factor(",unit,")", sep=""))
+      }
+    }
+  mod <- lm(form, data=data)
+  mod$call$formula <- form
+  mod
+  }
+
+# fit a VAR model (auxiliary)
+fitVAR <- function(x.names, unit, data, nlags) {
+  mod <- list()
+  for(i in 1:length(x.names)) {
+    iy <- x.names[i]
+    ix <- setdiff(x.names, iy)
+    mod[[i]] <- regFit(y.name=iy, x.names=ix, lags=rep(nlags,length(x.names)), data=data, unit=unit)
+    }
+  names(mod) <- x.names
+  mod
+  }
+
+# get fitted values of a VAR model (auxiliary)
+getFitted <- function(object, ...) {
+  ff <- lapply(object, fitted.values)
+  nomiObs <- rownames(object$data)
+  res <- data.frame(matrix(nrow=length(nomiObs), ncol=length(ff)))
+  rownames(res) <- nomiObs
+  colnames(res) <- names(ff)
+  for(i in 1:length(ff)) {
+    res[names(ff[[i]]),i] <- ff[[i]]
+    }
+  if(!is.null(object$unit)) {
+    res <- cbind(object$data[,object$unit],res)
+    colnames(res)[1] <- object$unit
+    }
+  res
+  }
+
+# function for EM imputation (auxiliary)
+EMimput <- function(x.names, unit=NULL, time=NULL, data, nlags=NULL, maxit=1000, tol=1e-4, quiet=FALSE) {
+  if(is.null(unit)) {
+    n <- nrow(data)
+    } else {
+    n <- min(sapply(split(data, data[,unit]), nrow))
+    }
+  if(is.null(nlags)) {
+    nlags <- trunc((n-1)^(1/3))
+    } else {
+    nlags <- min(nlags, trunc(n*2/3))
+    }
+  dataI <- data
+  isNA <- list()
+  for(i in 1:length(x.names)) {
+    isNA[[i]] <- which(is.na(data[,x.names[i]]))
+    dataI[isNA[[i]],x.names[i]] <- mean(data[,x.names[i]],na.rm=T) 
+    }
+  names(isNA) <- x.names
+  ll <- -Inf
+  fine <- ind <- 0
+  if(quiet==F) cat("EM iteration 0. Log likelihood: -")
+  flush.console()
+  while(fine==0) {
+    ind <- ind+1
+    m0 <- fitVAR(x.names=x.names, unit=unit, data=dataI, nlags=nlags)
+    ll0 <- sum(sapply(m0,function(x){logLik(x)[1]}))
+    if(ll0>=ll) {
+      if((ll0-ll)<tol | ind>=maxit) fine <- 1
+      if(quiet==F) {
+        cat("\r","EM iteration ",ind,". Log likelihood: ",ll0,sep="")
+        flush.console()
+        }
+      ll <- ll0
+      f0 <- getFitted(m0)
+      for(i in 1:length(x.names)) {
+        dataI[isNA[[x.names[i]]],x.names[i]] <- f0[isNA[[x.names[i]]],x.names[i]] 
+        }
+      modOK <- m0
+      } else {
+      ind <- ind-1
+      fine <- 1  
+      }
+    }
+  if(quiet==F) {
+    cat("\n")
+    if(ind<maxit) {
+      cat("EM converged after ",ind," iterations",sep="")
+      } else {
+      cat("EM reached the maximum number of iterations")
+      }
+    cat("\n")
+    }
+  ll <- sum(sapply(modOK, function(x){logLik(x)[1]}))
+  p <- sum(sapply(modOK, function(x){attr(logLik(x),"df")}))
+  n <- nrow(data)
+  ic <- c(aic=-2*ll+2*p, aicc=-2*ll+2*p*(1+(p+1)/(n-p-1)),
+          bic=-2*ll+p*log(n), hqic=-2*ll+2*p*log(log(n)))
+  list(models=modOK,data=data,data.imputed=dataI,unit=unit,time=time,nlags=nlags,logLik=ll,ic=ic)
   }

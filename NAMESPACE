@@ -1,13 +1,15 @@
-export(gammaWeights, gammaKernel, gammaQuantile, unirootTest, tsDiff, gammadlm, lagCoef)
+export(gammaWeights, gammaKernel, gammaQuantile, unirootTest, preProcess, gammadlm, lagCoef)
 
 S3method(vcov, gammadlm)
 S3method(summary, gammadlm)
 S3method(plot, gammadlm)
+S3method(residuals, gammadlm)
+S3method(fitted, gammadlm)
 S3method(print, unirootTest)
 
 importFrom("grDevices", "adjustcolor", "n2mfrow")
 importFrom("graphics", "abline", "box", "grid", "legend", "lines", "par", "polygon")
-importFrom("stats", "acf", "approx", "embed", "extractAIC", "formula", "lm",
-           "model.matrix", "na.omit", "pf", "pt", "var", "qnorm", "pnorm",
-           "residuals.lm", "spline", "summary.lm", "vcov", "ar")
+importFrom("stats", "acf", "approx", "embed", "extractAIC", "formula", "lm", "vcov",
+           "model.matrix", "na.omit", "pf", "pt", "var", "qnorm", "pnorm",  "ar",
+           "residuals.lm", "fitted.values", "logLik", "spline", "summary.lm")
 importFrom("utils", "flush.console")

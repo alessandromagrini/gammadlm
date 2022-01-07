@@ -33,7 +33,7 @@
 \examples{
 data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
-mydataLR <- tsDiff(time="Date", data=mydata, box.cox=0, ndiff=1)
+mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
 
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)
