@@ -69,10 +69,10 @@ summary(m4)  ## same as m2
 ```
 Estimated dynamic coefficients:
 ```
-lagCoef(m1)
-lagCoef(m1, cumul=T)  ## cumulative coefficients
+lagCoef(m4)
+lagCoef(m4, cumul=T)  ## cumulative coefficients
 ```
 Graphic of the estimated lag distributions:
 ```
-plot(m1)
+plot(m4)
 ```
