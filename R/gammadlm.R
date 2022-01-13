@@ -353,9 +353,10 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
     if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
     if(unit%in%var.names) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
+    data[,unit] <- factor(data[,unit])
     dataD <- dataL
     isNA <- c()
-    gr <- levels(factor(data[,unit]))
+    gr <- levels(data[,unit])
     val0 <- matrix(nrow=length(gr),ncol=length(var.names))
     rownames(val0) <- gr
     colnames(val0) <- var.names
@@ -375,7 +376,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     if(!is.numeric(nlags)) {
       nlags <- NULL
       } else {
-      if(nlags<0) nlags <- NULL else nlags <- round(nlags)
+      nlags <- round(abs(nlags))
       }
     tol <- em.control$tol[1]
     if(!is.numeric(tol)|is.null(tol)) tol <- 1e-4
@@ -785,21 +786,22 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(is.null(unit)) {
     if(!is.null(time)) data <- data[order(data[,time]),]
     } else {
-    #data[,unit] <- factor(data[,unit])
     if(length(unit)>1) unit <- unit[1]
     if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' in argument 'unit'")
     if(unit%in%y.name) stop("Variable '",unit,"' appears in both arguments 'y.name' and 'unit'")
     if(unit%in%x.names) stop("Variable '",unit,"' appears in both arguments 'x.names' and 'unit'")
     if(unit%in%z.names) stop("Variable '",unit,"' appears in both arguments 'z.names' and 'unit'")
     if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
+    data[,unit] <- factor(data[,unit])
     if(!is.null(time)) {
-      gr <- levels(factor(unit))
+      gr <- levels(data[,unit])
       for(w in gr) {
         ind <- which(data[,unit]==w)
         idat <- data[ind,]
         data[ind,] <- idat[order(idat[,time]),]
         }
       }
+    if(nlevels(data[,unit])<=1) unit <- NULL
     }
   #
   nstart <- control$nstart
@@ -1239,7 +1241,7 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
       bcumco <- c(bcum,bcum-tquan*bcum_se,bcum+tquan*bcum_se)
       if(is.null(cex.legend)) cex.legend <- 1
       bcumcoOK <- signif(bcumco)
-      legtxt <- paste("Cumulative coefficient: ",round(bcumcoOK[1],digits),"\n",
+      legtxt <- paste("Cumul. coeff.: ",round(bcumcoOK[1],digits),"\n",
         "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
       legend("topright",legend=legtxt,cex=cex.legend,bty="n")
       }
@@ -1401,15 +1403,19 @@ getFitted <- function(object, ...) {
 
 # function for EM imputation (auxiliary)
 EMimput <- function(x.names, unit=NULL, time=NULL, data, nlags=NULL, maxit=1000, tol=1e-4, quiet=FALSE) {
+  if(!is.null(unit)) {
+    data[,unit] <- factor(data[,unit])
+    if(nlevels(data[,unit])<=1) unit <- NULL
+    }
   if(is.null(unit)) {
     n <- nrow(data)
     } else {
     n <- min(sapply(split(data, data[,unit]), nrow))
     }
   if(is.null(nlags)) {
-    nlags <- trunc((n-1)^(1/3))
+    nlags <- trunc(min((n-1)^(1/3), 0.75*n/length(x.names)))
     } else {
-    nlags <- min(nlags, trunc(n*2/3))
+    nlags <- trunc(min(nlags, 0.75*n/length(x.names)))
     }
   dataI <- data
   isNA <- list()

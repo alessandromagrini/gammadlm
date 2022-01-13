@@ -83,7 +83,7 @@ data(USstock)
 mydata <- USstock[which(USstock$Date>="2020-04-01"),]
 mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
 
-# estimation with pre-specified shape parameters (1-step OLS)
+# estimation with pre-specified shape parameters (simple OLS)
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)
 m0 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
@@ -102,13 +102,13 @@ m2 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
   control=list(peak.lim=pklim, length.lim=lenlim))
 summary(m2)
 
-## no constraints with 50 random restarts: NOT RUN
+## 50 random restarts without constraints: NOT RUN
 #set.seed(100)
 #m3 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
 #  control=list(nstart=50))
 #summary(m3)
 ##
-## constraints and 50 random restarts: NOT RUN
+## 50 random restarts with constraints: NOT RUN
 #set.seed(100)
 #m4 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
 #  control=list(peak.lim=pklim, length.lim=lenlim, nstart=50))
