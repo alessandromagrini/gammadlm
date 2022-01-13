@@ -1,12 +1,12 @@
 ### DA FARE
 #
-# - residui e fitted values nel caso panel
+# - check opzione 'control' in gammadlm()
+# - aggiungere dataset simulato con dati panel
+# - metodo predict()
 #
-# - gam_inits(): migliorare efficienza
-# - gammadlm(): random restarts overdispersi
-# - h-step ahead prediction (tenere conto dell'autocorrelazione degli errori)
-# - constraint segno
 # - draw sample
+# - gam_inits(): migliorare l'efficienza
+# - constraint segno
 # - full covariance matrix
 #
 
@@ -42,8 +42,6 @@ linInterp <- function(x) {
 
 # unit root test for one variabile (auxiliary)
 oneTest <- function(x, unit=NULL, max.lag=NULL) {
-  if(missing(x)) stop("Argument 'x' is missing",call.=F)
-  if(!is.numeric(x)) stop("Argument 'x' must be a numerical vector",call.=F)
   if(is.null(unit)) {
     x <- na.omit(linInterp(x))
     n <- length(x)
@@ -207,6 +205,7 @@ kpssFun <- function(x, max.lag) {
 
 # perform unit root test
 unirootTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
+  if(missing(data)) stop("Argument 'data' is missing",call.=F)
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   is.dummy <- function(x) {
@@ -580,21 +579,6 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
   mod$par <- par
   mod$offset <- offset
   mod$add.intercept <- add.intercept
-  #
-  #rownames(par) <- c("delta","lambda")
-  #parlist <- list()
-  #for(i in 1:ncol(par)) parlist[[i]] <- c(par[,i],offset=offset[i])
-  #names(parlist) <- x.names
-  #mod$par <- parlist
-  #
-  mod$variables <- list(y.name=y.name,x.names=x.names,z.names=z.names,unit=unit)
-  if(is.null(unit)) {
-    idg <- NULL
-    } else {
-    idg <- lapply(split(data, data[,unit]), rownames)  
-    }
-  mod$unit.id <- idg
-  mod$data <- data
   class(mod) <- c("gammadlm","lm")
   mod
   }
@@ -737,7 +721,6 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
       fine <- 1
       }
     }
-  #parOK <- modOK$par
   modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T, add.intercept=add.intercept)
   list(model=modFinal,par.tested=testL)
   }
@@ -764,7 +747,7 @@ optFormat <- function(optList, nomi, val) {
 
 # MASTER FUNCTION
 gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)), add.intercept=TRUE,
-  control=list(nstart=50, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
+  control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
   #
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
@@ -820,7 +803,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     }
   #
   nstart <- control$nstart
-  if(is.null(nstart)) nstart <- 50
+  if(is.null(nstart)) nstart <- 1
   if(length(nstart)>1) nstart <- nstart[1]
   if(!is.numeric(nstart) || nstart!=round(nstart) || nstart<=0) stop("Argument 'nstart' must be a positive integer value")
   #max.try <- control$max.try
@@ -867,9 +850,9 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       }
     gridList <- gam_parGrid(delta.lim=delta.lim, lambda.lim=lambda.lim, peak.lim=peak.lim, length.lim=length.lim, grid.by=grid.by)
     pcombtot <- prod(sapply(gridList,nrow))
-    if(quiet==F & nstart>1) cat("\r","Found ",signif(pcombtot)," valid models     ",sep="","\n")
+    if(quiet==F) cat("\r","Found ",signif(pcombtot)," valid models     ",sep="","\n")
     if(is.null(gridList)) {
-      if(quiet==F & nstart>1) {
+      if(quiet==F) {
         cat("\n")
         cat("No solution with the current constraints","\n")
         }
@@ -878,27 +861,33 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       ntry_fit <- stopped <- 0
       modOK <- NULL
       searchList <- visitList <- list()
-      #
       if(nstart==1) {
-        ini0 <- matrix(0,nrow=2,ncol=length(x.names))
-        gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
-                         offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-                         sign=sign, grid.by=grid.by, add.intercept=add.intercept)
-        modOK <- gs0$model
-        #modOK$local.max <- NULL
+        ini0 <- c()
+        if(quiet==F) {
+          cat('\r',"Generating starting values ...")
+          flush.console()
+          }
+        for(i in 1:length(x.names)) {
+          igrid <- gridList[[i]]
+          irss <- Inf
+          for(j in 1:nrow(igrid)) {
+            ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i], z.names=c(setdiff(x.names,x.names[i]),z.names),
+              unit=unit, data=data, offset=offset, par=cbind(igrid[j,]), add.intercept=add.intercept, normalize=F)
+            ijrss <- sum(ijm$residuals^2)
+            if(ijrss<irss) {
+              irss <- ijrss
+              ipar <- ijm$par
+              }
+            }
+          ini0 <- cbind(ini0, ipar)
+          }
         }
-      else
-      #
       for(i in 1:max.start) {
-        #if(quiet==F) {
-        #  cat('\r',"Restart ",i,"/",nstart,": explored ",length(visitList)," valid models",sep="")
-        #  flush.console()
-        #  }
         ini0 <- gam_inits(gridList=gridList, visitList=visitList, maxtry=max.start)
         if(!is.null(ini0)) {
           gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
-                           offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-                           sign=sign, grid.by=grid.by, add.intercept=add.intercept)
+            offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
+            sign=sign, grid.by=grid.by, add.intercept=add.intercept)
           } else {
           gs0 <- NULL
           stopped <- 2
@@ -947,6 +936,14 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       modOK$local.max <- searchOK
       }
     }
+  modOK$variables <- list(y.name=y.name,x.names=x.names,z.names=z.names,unit=unit,time=time)
+  if(is.null(unit)) {
+    idg <- NULL
+    } else {
+    idg <- lapply(split(data, data[,unit]), rownames)  
+    }
+  modOK$unit.id <- idg
+  modOK$data <- data[,c(unit,time,y.name,x.names,z.names)]
   #
   #if(!is.null(modOK)) {  ## <----- fitted values aggiustati per l'autocorrelazione
   #  resid <- modOK$residuals
@@ -961,11 +958,12 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   #
   #
   if(is.null(unit)) {
-    pval <- oneTest(modOK$residuals)$p.value["adf"]
+    pval <- oneTest(modOK$residuals)$p.value
     } else {
-    pval <- oneTest(modOK$residuals, unit=data[,unit])$p.value["(combined)","adf"]
+    pval <- oneTest(modOK$residuals, unit=data[,unit])$p.value["(combined)",]
     }
-  if(pval>0.05) warning("ADF test on residuals is not significant: regression could be spurious", call.=F)
+  if(pval["adf"]>0.05) warning("ADF test on residuals is not significant: regression could be spurious", call.=F)
+  if(pval["kpss"]<0.05) warning("KPSS test on residuals is significant: regression could be spurious", call.=F)
   modOK
   }
 
@@ -973,8 +971,8 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
 summary.gammadlm <- function(object, ...) {
   summ <- summary.lm(object, ...)
   ttab <- summ$coefficients
-  S <- hacCalc(Xmat=model.matrix(object), resid=object$residuals, uS=summary.lm(object)$cov.unscaled, unitID=object$unit.id)
-  bse <- sqrt(diag(S))
+  SS <- hacCalc(Xmat=model.matrix(object), resid=object$residuals, uS=summary.lm(object)$cov.unscaled, unitID=object$unit.id)
+  bse <- sqrt(diag(SS))
   ttab[,2] <- bse
   ttab[,3] <- ttab[,1]/ttab[,2]
   ttab[,4] <- round(2*pt(-abs(ttab[,3]),object$df.residual),6)
@@ -1037,9 +1035,11 @@ arTest <- function(resid, max.order=NULL) {
   }
 
 # hac covariance matrix (auxiliary)
-hacCalc <- function(Xmat, resid, uS=NULL, unitID=NULL) {
+hacCalc <- function(Xmat, resid, uS, unitID) {
   homo <- ar(resid^2)$order==0
-  if(is.null(uS)) uS <- solve(t(Xmat)%*%Xmat)
+  #if(is.null(uS)) uS <- solve(t(Xmat)%*%Xmat)
+  xdel <- setdiff(colnames(Xmat),colnames(uS))
+  if(length(xdel)>0) Xmat <- Xmat[,colnames(uS)]
   if(is.null(unitID)) {
     max.lag <- ar(resid)$order
     } else {
@@ -1049,7 +1049,7 @@ hacCalc <- function(Xmat, resid, uS=NULL, unitID=NULL) {
       }
     }
   if(sum(max.lag)==0 & homo==T) {
-    uS*sum(resid^2)/(length(resid)-ncol(Xmat))
+    SS <- uS*sum(resid^2)/(length(resid)-ncol(Xmat))
     } else {
     #
     #Wcalc <- function(k) {
@@ -1099,17 +1099,25 @@ hacCalc <- function(Xmat, resid, uS=NULL, unitID=NULL) {
         W[ind,ind] <- wei
         }
       }
-    uS%*%t(Xmat)%*%W%*%Xmat%*%uS
+    SS <- uS%*%t(Xmat)%*%W%*%Xmat%*%uS
     }
+  SS
   }
 
 # extract lag coefficients
-lagCoef <- function(x, cumulative=FALSE, max.lag=NULL, max.quantile=0.999) {
+lagCoef <- function(x, conf=0.95, cumulative=FALSE, max.lag=NULL, max.quantile=0.999) {
   if(missing(x)) stop("Argument 'x' is missing")
   if(!identical(class(x),c("gammadlm","lm"))) stop("Argument 'x' must be an object of class 'gammadlm'")
   #
   if(length(cumulative)>1) cumulative <- cumulative[1]
   if(!is.logical(cumulative)) stop("Argument 'cumulative' must be a logical value")
+  #
+  if(!is.numeric(conf)) {
+    conf <- NULL
+    } else {
+    conf <- conf[1]
+    if(conf<=0|conf>=1) conf <- NULL
+    }
   #
   if(!is.null(max.lag)) {
     if(length(max.lag)>1) max.lag <- max.lag[1]
@@ -1155,7 +1163,16 @@ lagCoef <- function(x, cumulative=FALSE, max.lag=NULL, max.quantile=0.999) {
       res[[i]] <- iresC
       }
     }
-  res
+  if(!is.null(conf)) {
+    zval <- qnorm((1+conf)/2)
+    lapply(res, function(x) {
+      x[,paste0(round(100*conf,1),"%_lower")] <- x[,1]-zval*x[,2]
+      x[,paste0(round(100*conf,1),"%_upper")] <- x[,1]+zval*x[,2]
+      x
+      })
+    } else {
+    res
+    }
   }
 
 # plot method for class 'gammadlm'
@@ -1223,7 +1240,7 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
       if(is.null(cex.legend)) cex.legend <- 1
       bcumcoOK <- signif(bcumco)
       legtxt <- paste("Cumulative coefficient: ",round(bcumcoOK[1],digits),"\n",
-                      "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
+        "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
       legend("topright",legend=legtxt,cex=cex.legend,bty="n")
       }
     box()
@@ -1263,23 +1280,25 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
 # fitted method for class 'gammadlm'
 fitted.gammadlm <- function(object, ...) {
   if(is.null(object$variables$unit)) {
-    object$fitted.values
+    tab <- data.frame(object$data[,object$variables$time], object$fitted.values)
+    colnames(tab) <- c(object$variables$time, object$variables$y.name)
     } else {
-    lapply(object$unit.id, function(x) {
-      object$fitted.values[x]
-      })
+    tab <- data.frame(object$data[,c(object$variables$unit,object$variables$time)], object$fitted.values)
+    colnames(tab) <- c(object$variables$unit, object$variables$time, object$variables$y.name)
     }
+  tab
   }
 
 # residuals method for class 'gammadlm'
 residuals.gammadlm <- function(object, ...) {
   if(is.null(object$variables$unit)) {
-    object$residuals
+    tab <- data.frame(object$data[,object$variables$time], object$residuals)
+    colnames(tab) <- c(object$variables$time, object$variables$y.name)
     } else {
-    lapply(object$unit.id, function(x) {
-      object$residuals[x]
-      })
+    tab <- data.frame(object$data[,c(object$variables$unit,object$variables$time)], object$residuals)
+    colnames(tab) <- c(object$variables$unit, object$variables$time, object$variables$y.name)
     }
+  tab
   }
 
 

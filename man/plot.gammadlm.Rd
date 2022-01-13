@@ -36,10 +36,10 @@ mydata <- USstock[which(USstock$Date>="2020-04-01"),]
 mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
 
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
-lval <- list(DJA=0.5, IXIC=0.35,GSPC=0.45)
-mod <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
+lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)
+m0 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
   control=list(delta.lim=dval, lambda.lim=lval))
 
-plot(mod)  ## all the lag distributions
-plot(mod, x.names=c("DJA","IXIC"))  ## just the ones of 'DJA' and 'IXIC'
+plot(m0)  ## all the lag distributions
+plot(m0, x.names=c("DJA","IXIC"))  ## just the ones of 'DJA' and 'IXIC'
 }

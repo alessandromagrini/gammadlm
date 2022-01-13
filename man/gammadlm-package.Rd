@@ -1,14 +1,14 @@
 \name{gammadlm-package}
 \alias{gammadlm-package}
 \docType{package}
-\title{The Gamma Distributed-Lag Model with Multiple Explanatory Variables}
-\description{Maximum likelihood estimation and inference for the Gamma distributed-lag model with multiple explanatory variables. A panel structure can be taken into account.}
+\title{Maximum Likelihood Estimation of the Gamma Distributed-Lag Model with Multiple Explanatory Variables}
+\description{Implementation of the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. A panel structure can be taken into account.}
 \details{
   \tabular{ll}{
   Package: \tab gammadlm\cr
   Type: \tab Package\cr
   Version: \tab 0.1.1\cr
-  Date: \tab 2022-01-07\cr
+  Date: \tab 2022-01-13\cr
   License: \tab GPL-2
   }
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.
