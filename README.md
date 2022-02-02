@@ -3,7 +3,7 @@ __Maximum likelihood estimation of the Gamma distributed-lag model with multiple
 
 `gammadlm` is an R package implementing the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. A panel structure can be taken into account. The reference paper is:
 
-A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. _Austrian Journal of Statistics_, 51(2): 40-46. https://doi.org/10.17713/ajs.v51i2.1244 
+A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. _Austrian Journal of Statistics_, 51(2): 40-46. <a href="https://doi.org/10.17713/ajs.v51i2.1244" target="_blank">10.17713/ajs.v51i2.1244</a>
 
 
 R (The R Project for Statistical Computing) needs to be installed on your system in order
