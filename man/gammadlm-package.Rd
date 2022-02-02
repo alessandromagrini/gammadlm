@@ -8,7 +8,7 @@
   Package: \tab gammadlm\cr
   Type: \tab Package\cr
   Version: \tab 0.1.1\cr
-  Date: \tab 2022-01-13\cr
+  Date: \tab 2022-02-02\cr
   License: \tab GPL-2
   }
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.

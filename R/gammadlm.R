@@ -370,8 +370,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     attr(dataD,"ndiff") <- ndiff
     res <- dataD[setdiff(1:nrow(data),isNA),,drop=F]
     }
-  res
-  if(imputation) {
+  if(imputation & sum(is.na(res))>0) {
     nlags <- em.control$nlags[1]
     if(!is.numeric(nlags)) {
       nlags <- NULL
@@ -569,7 +568,7 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
     if(offset[i]==0) offstr <- "" else offstr <- paste(",offset=",offset[i],sep="")
     form0 <- paste(form0,"gammaKernel(",x.names[i],",par=c(",paste(par[,i],collapse=","),")",gstr,offstr,normstr,")",sep="")
     }
-  if(!is.null(z.names)) form0 <- paste(form0,"+",paste(z.names,collapse="+"),sep="")
+  if(length(z.names)>0) form0 <- paste(form0,"+",paste(z.names,collapse="+"),sep="")
   formOK <- formula(form0)
   mod <- lm(formOK,data=data)
   mod$call$formula <- formOK
