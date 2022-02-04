@@ -858,7 +858,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     #if(is.null(sign)) sign <- rep(0,p)
     #
     if(quiet==F) {
-      cat("Scanning valid models ...")
+      cat("Looking for valid models ...")
       flush.console()
       }
     gridList <- gam_parGrid(delta.lim=delta.lim, lambda.lim=lambda.lim, peak.lim=peak.lim, length.lim=length.lim, grid.by=grid.by)
@@ -884,9 +884,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
           igrid <- gridList[[i]]
           irss <- Inf
           for(j in 1:nrow(igrid)) {
-            ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i],
-              #z.names=z.names,
-              z.names=c(setdiff(x.names,x.names[i]),z.names),
+            ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i], z.names=c(setdiff(x.names,x.names[i]),z.names),
               unit=unit, data=data, offset=offset, par=cbind(igrid[j,]), add.intercept=add.intercept, normalize=F)
             ijrss <- sum(ijm$residuals^2)
             if(ijrss<irss) {
@@ -896,7 +894,14 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
             }
           ini0 <- cbind(ini0, ipar)
           }
+        gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
+          offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
+          sign=sign, grid.by=grid.by, add.intercept=add.intercept)
+        modOK <- gs0$model
         }
+      #
+      else
+      #
       for(i in 1:max.start) {
         ini0 <- gam_inits(gridList=gridList, visitList=visitList, maxtry=max.start)
         if(!is.null(ini0)) {
@@ -938,7 +943,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
         #if(stopped==1) {
         #  cat("No improvement found in the last ",max.try, " restarts. End",sep="","\n")
         #  } else if(stopped==2) {
-        #    cat("No more valid initial values found. End",sep="","\n")
+        #    cat("No more valid starting values found. End",sep="","\n")
         #  } else {
         #  cat("Maximum number of restarts reached. End",sep="","\n")
         #  }

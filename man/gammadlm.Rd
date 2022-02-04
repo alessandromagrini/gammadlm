@@ -103,11 +103,11 @@ summary(m2)
 #set.seed(100)
 #m3 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
 #  control=list(nstart=50))
-#summary(m3)
+#summary(m3)  ## better fit than m1
 ##
 ## 50 random restarts with constraints: NOT RUN
 #set.seed(100)
 #m4 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
 #  control=list(peak.lim=pklim, length.lim=lenlim, nstart=50))
-#summary(m4)  ## same as m2
+#summary(m4)  ## better fit than m2
 }
