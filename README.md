@@ -27,8 +27,8 @@ library(gammadlm)
 ```
 Load data on Bitcoin and US stock market price
 ```
-data(USstock)
-mydata <- USstock[which(USstock$Date>="2020-04-01"),]  ## select data from April 2020 onwards
+data(btc)
+mydata <- btc[which(btc$Date>="2020-04-01"),]  ## select data from April 2020 onwards
 ```
 Trasform the variables in log return to achieve weak stationarity
 ```
