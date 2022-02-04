@@ -59,13 +59,13 @@ summary(m2)
 set.seed(100)
 m3 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
   control=list(nstart=50))
-summary(m3)  ## better than m1
+summary(m3)  ## better fit than m1
 
 # 50 random restarts with constraints
 set.seed(100)
 m4 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
   control=list(peak.lim=pklim, length.lim=lenlim, nstart=50))
-summary(m4)  ## better than m2
+summary(m4)  ## better fit than m2
 ```
 Estimated dynamic coefficients:
 ```
