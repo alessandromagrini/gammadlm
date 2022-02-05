@@ -290,29 +290,25 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     }
   #
   if(!is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
-  if(length(box.cox)==1) {
+  if(length(box.cox)==1&is.null(names(box.cox))) {
     box.cox <- rep(box.cox,length(var.names))
+    names(box.cox) <- var.names
     } else {
-    if(length(box.cox)>=length(var.names)) {
-      box.cox <- box.cox[1:length(var.names)]
-      } else {
-      box.cox <- c(box.cox,rep(1,length(var.names)-length(box.cox)))   
-      }
+    box.cox <- box.cox[var.names]
+    names(box.cox) <- var.names
+    box.cox[which(is.na(box.cox))] <- 1
     }
-  names(box.cox) <- var.names
   if(sum(box.cox<0)>0) stop("Argument 'box.cox' must contain non-negative real values")
   #
   if(!is.numeric(ndiff)) stop("Argument 'ndiff' must be a numeric value or vector")
-  if(length(ndiff)==1) {
+  if(length(ndiff)==1&is.null(names(ndiff))) {
     ndiff <- rep(ndiff,length(var.names))
+    names(ndiff) <- var.names
     } else {
-    if(length(ndiff)>=length(var.names)) {
-      ndiff <- ndiff[1:length(var.names)]
-      } else {
-      ndiff <- c(ndiff,rep(0,length(var.names)-length(ndiff)))   
-      }
+    ndiff <- ndiff[var.names]
+    names(ndiff) <- var.names
+    ndiff[which(is.na(ndiff))] <- 0
     }
-  names(ndiff) <- var.names
   if(sum(ndiff<0|round(ndiff)!=ndiff)>0) stop("Argument 'ndiff' must contain non-negative integer values")
   #
   imputation <- imputation[1]
