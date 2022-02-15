@@ -2,13 +2,12 @@
 #
 # - check opzione 'control' in gammadlm()
 # - aggiungere dataset simulato con dati panel
-# - metodo predict()
 #
+# - metodo predict
 # - draw sample
 # - gam_inits(): migliorare l'efficienza
 # - constraint segno
 # - full covariance matrix
-#
 
 
 # log function (auxiliary)
@@ -367,7 +366,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     attr(dataD,"ndiff") <- ndiff
     res <- dataD[setdiff(1:nrow(data),isNA),,drop=F]
     }
-  if(imputation & sum(is.na(res))>0) {
+  if(imputation & sum(is.na(res[,var.names]))>0) {
     nlags <- em.control$nlags[1]
     if(!is.numeric(nlags)) {
       nlags <- NULL
@@ -814,7 +813,8 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   nstart <- control$nstart[1]
   if(is.null(nstart)) nstart <- 1
   if(!is.numeric(nstart)) nstart <- 1 else nstart <- max(1,ceiling(nstart))
-  if(nstart==1) quiet <- T
+  #if(nstart==1) quiet <- T
+  #
   #max.try <- control$max.try
   #if(is.null(max.try)) max.try <- 50
   #max.start <- control$max.start
@@ -823,6 +823,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   #if(is.null(grid.by)) grid.by <- 0.05
   #if(length(grid.by)>1) grid.by <- grid.by[1]
   #if(!is.numeric(grid.by) || grid.by<=0 || grid.by>0.1) stop("Argument 'grid.by' must be a positive value no greater than 0.1")
+  #
   grid.by <- 0.05
   delta.lim <- control$delta.lim
   lambda.lim <- control$lambda.lim
@@ -831,11 +832,19 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   sign <- NULL  ## <----- constraint segno
   max.try <- max.start <- nstart
   #
-  if(!is.numeric(offset)) stop("Argument 'offset' must be a numerical vector")
-  if(length(offset)==1) offset <- rep(offset,length(x.names))
-  if(length(offset)>length(x.names)) offset <- offset[1:length(x.names)]
-  if(length(offset)<length(x.names)) offset <- c(offset,rep(0,length(x.names)-length(offset)))    
-  if(y.name%in%x.names && offset[which(x.names==y.name)]<1) offset[which(x.names==y.name)] <- 1
+  if(!is.numeric(offset)) {
+    offset <- rep(0,length(x.names))
+    names(offset) <- x.names
+    }
+  if(length(offset)==1&is.null(names(offset))) {
+    offset <- rep(max(0,offset),length(x.names))
+    names(offset) <- x.names
+    } else {
+    offset <- offset[x.names]
+    names(offset) <- x.names
+    offset[which(is.na(offset)|offset<0)] <- 0
+    }
+  if(y.name%in%x.names && offset[y.name]<1) offset[y.name] <- 1
   #
   delta.lim <- optFormat(delta.lim, x.names, c(0,1))
   lambda.lim <- optFormat(lambda.lim, x.names, c(0,1))
@@ -872,16 +881,20 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       searchList <- visitList <- list()
       if(nstart==1) {
         ini0 <- c()
-        #if(quiet==F) {
-        #  cat('\r',"Generating starting values ...")
-        #  flush.console()
-        #  }
+        if(quiet==F) {
+          cat('\r',"Generating starting values ...")
+          flush.console()
+          }
         for(i in 1:length(x.names)) {
           igrid <- gridList[[i]]
           irss <- Inf
           for(j in 1:nrow(igrid)) {
-            ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i], z.names=c(setdiff(x.names,x.names[i]),z.names),
-              unit=unit, data=data, offset=offset, par=cbind(igrid[j,]), add.intercept=add.intercept, normalize=F)
+            suppressWarnings(
+              ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i],
+                z.names=c(setdiff(x.names,x.names[i]),z.names),
+                unit=unit, data=data, offset=offset[x.names[i]],
+                par=cbind(igrid[j,]), add.intercept=add.intercept, normalize=F)
+              )
             ijrss <- sum(ijm$residuals^2)
             if(ijrss<irss) {
               irss <- ijrss
@@ -890,10 +903,17 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
             }
           ini0 <- cbind(ini0, ipar)
           }
+        if(quiet==F) {
+          cat('\r',"Running hill climbing ...     ")
+          flush.console()
+          }
         gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
           offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
           sign=sign, grid.by=grid.by, add.intercept=add.intercept)
         modOK <- gs0$model
+        if(quiet==F) {
+          cat('\r',"Explored ",length(gs0$par.tested)," valid models  ",sep="")
+          }
         }
       #
       else

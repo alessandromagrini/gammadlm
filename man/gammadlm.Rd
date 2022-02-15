@@ -12,7 +12,7 @@
   \item{unit}{Character containing the name of the units of observation in case of a panel structure. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in the model. Variables in \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time} cannot contain missing values.}
-  \item{offset}{Numerical vector indicating, in order, the offset for each variable in \code{x.names}. Default is 0. If the name of the response variable is indicated in \code{x.names} and its offset is less than 1, then it will be set automatically to 1.}
+  \item{offset}{Named vector with non-negative real values indicating the offset for variables in \code{x.names}. If \code{offset} is of length one and has no names, the same offset is used for all variables in \code{x.names}. If a variable in \code{x.names} has no name in \code{offset} or a negative value is provided, value 0 is assumed. If the name of the response variable is indicated in \code{x.names} and a value less than 1 is provided, value 1 is assumed. Default value of \code{offset} is 0.}
   \item{add.intercept}{Logical value indicating whether the intercept should be included in the model. Default is \code{TRUE}. See 'Details'.}
   \item{control}{A list including control options for the hill climbing algorithm.
    \itemize{
@@ -56,8 +56,8 @@ All S3 methods for class \code{lm} are also available for class \code{gammadlm}.
 Furthermore, method \link{lagCoef} can be used to see the estimated dynamic coefficients.
 }
 \note{
-Weak stationarity of all time series (expected value and autocorrelation function independent of time) is a basic assumption of the model.
-However, in order to get valid results, it is sufficient that no time series contains unit roots (Granger & Newbold, 1974).
+Weak stationarity of all time series (expected value and autocorrelation function independent of time) is a basic assumption of the model, that is guaranteed if no time series contains unit roots.
+%However, in order to get valid results, it is sufficient that no time series contains unit roots (Granger & Newbold, 1974).
 Before calling the function \link{gammadlm}, the user is strongly recommended to check the absence of unit roots in each time series through the function \link{unirootTest}, and to apply differencing through the function \link{preProcess} to the ones containing unit roots.
 
 Function \link{gammadlm} automatically checks the absence of unit roots in the residuals and returns a warning in case of failure.
@@ -67,7 +67,7 @@ The same holds for the \code{confint} method.
 }
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-C. W. J. Granger, and P. Newbold (1974). Spurious regressions in econometrics. \emph{Journal of Econometrics}, 2(2): 111-120.
+%C. W. J. Granger, and P. Newbold (1974). Spurious regressions in econometrics. \emph{Journal of Econometrics}, 2(2): 111-120.
 
 A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46.
 
