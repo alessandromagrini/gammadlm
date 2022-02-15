@@ -868,7 +868,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       }
     gridList <- gam_parGrid(delta.lim=delta.lim, lambda.lim=lambda.lim, peak.lim=peak.lim, length.lim=length.lim, grid.by=grid.by)
     pcombtot <- prod(sapply(gridList,nrow))
-    if(quiet==F) cat("\r","Found ",signif(pcombtot)," valid models     ",sep="","\n")
+    if(quiet==F) cat("\r","Found ",signif(pcombtot)," valid models        ",sep="","\n")
     if(is.null(gridList)) {
       if(quiet==F) {
         cat("\n")
@@ -912,7 +912,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
           sign=sign, grid.by=grid.by, add.intercept=add.intercept)
         modOK <- gs0$model
         if(quiet==F) {
-          cat('\r',"Explored ",length(gs0$par.tested)," valid models  ",sep="")
+          cat('\r',"Explored ",length(gs0$par.tested)," valid models       ",sep="")
           }
         }
       #
