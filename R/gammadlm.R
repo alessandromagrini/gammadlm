@@ -205,6 +205,7 @@ kpssFun <- function(x, max.lag) {
 # perform unit root test
 unirootTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff, imputation=FALSE)
+  if(is.null(var.names)) var.names <- names(attr(dataD,"box.cox"))
   if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   max.lag <- max.lag[1]
   if(!is.numeric(max.lag)) max.lag <- NULL else max.lag <- max(0,ceiling(max.lag))

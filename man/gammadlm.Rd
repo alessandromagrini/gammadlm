@@ -1,7 +1,7 @@
 \name{gammadlm}
 \alias{gammadlm}
 \title{Estimation of a Gamma distributed-lag model}
-\description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. A panel structure can be taken into account.}
+\description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. A balanced or unbalanced panel structure can be taken into account.}
 \usage{gammadlm(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
   offset=rep(0,length(x.names)), add.intercept=TRUE, control=list(nstart=NULL,
   delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE)}
@@ -69,7 +69,7 @@ The same holds for the \code{confint} method.
 \references{
 %C. W. J. Granger, and P. Newbold (1974). Spurious regressions in econometrics. \emph{Journal of Econometrics}, 2(2): 111-120.
 
-A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46.
+A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46. DOI: 10.17713/ajs.v51i2.1244
 
 W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }

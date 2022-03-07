@@ -1,7 +1,7 @@
 \name{unirootTest}
 \alias{unirootTest}
 \title{Unit root tests}
-\description{Augmented Dickey-Fuller (ADF) and Kwiatkowski-Phillips-Schmidt-Shin (KPSS) tests for a multivariate time series, eventually structured as a panel.}
+\description{Augmented Dickey-Fuller (ADF) and Kwiatkowski-Phillips-Schmidt-Shin (KPSS) tests for a multivariate time series, eventually structured as a balanced or unbalanced panel.}
 \usage{unirootTest(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL)}
 \arguments{
   \item{var.names}{Character vector including the name of the variables to be differenced. If \code{NULL} (the default), all the quantitative variables in the dataset provided to argument \code{data} will be differenced, with the exception of the variable indicated in \code{time}.}
@@ -40,13 +40,11 @@ Therefore, p-value higher than 0.05 for the ADF test or p-value lower than 0.05 
 In case of a panel structure, p-values are combined according to the method by Demetrescu \emph{et al.} (2006).}
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-M. Demetrescu, U. Hassler, and A. Tarcolea (2006). Combining significance of correlated statistics with application to panel data. \emph{Oxford Bulletin of Economics and Statistics}, 68(5), 647-663.
+M. Demetrescu, U. Hassler, and A. Tarcolea (2006). Combining significance of correlated statistics with application to panel data. \emph{Oxford Bulletin of Economics and Statistics}, 68(5), 647-663. DOI: 10.1111/j.1468-0084.2006.00181.x
   
-D. A. Dickey, and W. A. Fuller (1981). Likelihood ratio statistics for autoregressive time series with a unit root. \emph{Econometrica}, 49(4): 1057-1072.
+D. A. Dickey, and W. A. Fuller (1981). Likelihood ratio statistics for autoregressive time series with a unit root. \emph{Econometrica}, 49(4): 1057-1072. DOI: 10.2307/1912517
 
-D. Kwiatkowski, P. C. B. Phillips, P. Schmidt, and Y. Shin (1992). Testing the null hypothesis of stationarity against the alternative of a unit root. \emph{Journal of Econometrics}, 54(1-3): 159-178.
-
-%S. Ng, and W. P. Perron (2001). Unit Root Tests in ARMA Models with Data-Dependent Methods for the Selection of the Truncation Lag. \emph{Journal of the American Statistical Association}, 90(429): 268-281.
+D. Kwiatkowski, P. C. B. Phillips, P. Schmidt, and Y. Shin (1992). Testing the null hypothesis of stationarity against the alternative of a unit root. \emph{Journal of Econometrics}, 54(1-3): 159-178. DOI: 10.1016/0304-4076(92)90104-Y
 }
 \seealso{\link{preProcess}.}
 \examples{

@@ -1,7 +1,7 @@
 \name{preProcess}
 \alias{preProcess}
 \title{Preprocessing of time series data}
-\description{Application of the Box-Cox transformation and/or differencing to a multivariate time series, eventually structured as a panel.}
+\description{Application of the Box-Cox transformation and/or differencing to a multivariate time series, eventually structured as a balanced or unbalanced panel.}
 \usage{preProcess(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
   imputation=TRUE, em.control=list(nlags=NULL, tol=1e-4, maxit=1000, quiet=FALSE))}
 \arguments{
@@ -40,9 +40,9 @@ A vector autoregressive model is assumed where the expectation of missing values
 }
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-G. E. P. Box, and D. R. Cox (1964). An analysis of transformations. \emph{Journal of the Royal Statistical Society}, Series B (Methodological), 26(2): 211-252.
+G. E. P. Box, and D. R. Cox (1964). An analysis of transformations. \emph{Journal of the Royal Statistical Society}, Series B (Methodological), 26(2): 211-252. DOI: 10.1111/j.2517-6161.1964.tb00553.x
 
-A. P. Dempster, N. M. Laird, and D. B. Rubin (1977). Maximum likelihood from incomplete data via the EM algorithm. \emph{Journal of the Royal Statistical Society}n Series B (Methodological), 39(1): 1-38.
+A. P. Dempster, N. M. Laird, and D. B. Rubin (1977). Maximum likelihood from incomplete data via the EM algorithm. \emph{Journal of the Royal Statistical Society}n Series B (Methodological), 39(1): 1-38. DOI: 10.1111/j.2517-6161.1977.tb01600.x
 }
 \seealso{\link{unirootTest}.}
 \examples{
