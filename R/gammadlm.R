@@ -90,13 +90,20 @@ oneTest <- function(x, unit=NULL, max.lag=NULL) {
       }
     #
     pvalComb <- function(x) {
-      m <- length(x)
-      logp <- qnorm(x)
-      rhat <- 1-var(logp)
-      rstar <- max(rhat,-1/(m-1))
-      auxz <- sum(logp)/sqrt(m*(1+(m-1)*(rstar+0.2*sqrt(2/(m+1))*(1-rstar))))
-      #auxz <- sum(logp)/sqrt(m)
-      c(x,'(combined)'=2*pnorm(-abs(auxz)))
+      x[which(x<=0)] <- 1e-8
+      x[which(x>=1)] <- 1-1e-8
+      ind <- which(!is.na(x))
+      if(length(ind)>0) {
+        m <- length(ind)
+        logp <- qnorm(x[ind])
+        rhat <- 1-var(logp)
+        rstar <- max(rhat,-1/(m-1))
+        auxz <- sum(logp)/sqrt(m*(1+(m-1)*(rstar+0.2*sqrt(2/(m+1))*(1-rstar))))
+        #auxz <- sum(logp)/sqrt(m)
+        c(x,'(combined)'=2*pnorm(-abs(auxz)))
+        } else {
+        c(x,'(combined)'=NaN)
+        }
       }
     #
     res1 <- lapply(res1, function(z){names(z)<-gr; z})
@@ -130,7 +137,9 @@ adfFun <- function(x, max.lag) {
       } else {
       res <- lm(yt~xt1+tt)
       }
-    res.sum <- summary(res)$coefficients
+    suppressWarnings(
+      res.sum <- summary.lm(res)$coefficients
+      )
     if(nrow(res.sum)>=2) {
       STAT <- res.sum[2,1]/res.sum[2,2]
       table <- -1*cbind(c(4.38, 4.15, 4.04, 3.99, 3.98, 3.96),
@@ -154,12 +163,13 @@ adfFun <- function(x, max.lag) {
       }
     c(STAT,PVAL)
     }
-  if(max.lag>0) {
-    k <- ar(x,order.max=max.lag)$order
+  k <- 0
+  if(length(x)>=5 & var(x)>0) {  ## <--
+    if(max.lag>0) k <- ar(x,order.max=max.lag)$order
+    res <- doADF(k)
     } else {
-    k <- 0
+    res <- c(NaN,NaN)
     }
-  res <- doADF(k)
   list(statistic=res[1], lag.selected=k, p.value=res[2])
   }
 
@@ -193,12 +203,13 @@ kpssFun <- function(x, max.lag) {
     c(statistic=STAT, p.value=PVAL)
     }
   #
-  if(max.lag>0) {
-    k <- ar(x,order.max=max.lag)$order
+  k <- 0
+  if(length(x)>=5 & var(x)>0) {  ## <--
+    if(max.lag>0) k <- ar(x,order.max=max.lag)$order
+    res <- doKPSS(k)
     } else {
-    k <- 0
+    res <- c(NaN,NaN)
     }
-  res <- doKPSS(k)
   list(statistic=unname(res[1]), lag.selected=k, p.value=unname(res[2]))
   }
 
@@ -1048,7 +1059,7 @@ arTest <- function(resid, max.order=NULL) {
       } else {
       mod <- lm(y~-1)
       }
-    #ichisq <- (n-i)*summary(im)$r.squared
+    #ichisq <- (n-i)*summary.lm(im)$r.squared
     #ipval <- 1-pchisq(ichisq,i)
     bic <- extractAIC(mod,k=log(n))[2]
     if(bic<bicOK) {
@@ -1068,7 +1079,7 @@ arTest <- function(resid, max.order=NULL) {
     mOK <- lm(resid~-1)
     bhat <- c()
     }
-  list(order=pOK,ar=bhat,var=summary(mOK)$sigma^2)
+  list(order=pOK,ar=bhat,var=summary.lm(mOK)$sigma^2)
   }
 
 # hac covariance matrix (auxiliary)
