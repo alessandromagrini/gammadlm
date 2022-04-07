@@ -301,9 +301,13 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     }
   #
   if(!is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
-  if(length(box.cox)==1&is.null(names(box.cox))) {
+  if(length(box.cox)==1) {
     box.cox <- rep(box.cox,length(var.names))
     names(box.cox) <- var.names
+    } else if(is.null(names(box.cox))) {
+    box.cox <- box.cox[1:length(var.names)]
+    names(box.cox) <- var.names
+    box.cox[which(is.na(box.cox))] <- 1
     } else {
     box.cox <- box.cox[var.names]
     names(box.cox) <- var.names
@@ -312,9 +316,13 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
   if(sum(box.cox<0)>0) stop("Argument 'box.cox' must contain non-negative real values")
   #
   if(!is.numeric(ndiff)) stop("Argument 'ndiff' must be a numeric value or vector")
-  if(length(ndiff)==1&is.null(names(ndiff))) {
+  if(length(ndiff)==1) {
     ndiff <- rep(ndiff,length(var.names))
     names(ndiff) <- var.names
+    } else if(is.null(names(ndiff))) {
+    ndiff <- ndiff[1:length(var.names)]
+    names(ndiff) <- var.names
+    ndiff[which(is.na(ndiff))] <- 0
     } else {
     ndiff <- ndiff[var.names]
     names(ndiff) <- var.names
