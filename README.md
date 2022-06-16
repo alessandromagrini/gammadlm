@@ -30,7 +30,7 @@ Load data on Bitcoin and US stock market price
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]  ## select data from April 2020 onwards
 ```
-Trasform the variables in log return to achieve weak stationarity
+Trasform the variables in logarithmic differences (yearly relative changes) to achieve weak stationarity
 ```
 mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
 ```
@@ -83,7 +83,7 @@ y_name <- "TFP"
 x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
 z_name <- c("Land","Output_total")
 
-# compute logarithmic differences (yearly relative changes)
+# Trasform the variables in logarithmic differences (yearly relative changes) to achieve weak stationarity
 cmefLR <- preProcess(c(y_name,x_name,z_name),
   unit="Country",time="Year", data=cmef, box.cox=0, ndiff=1)
 
