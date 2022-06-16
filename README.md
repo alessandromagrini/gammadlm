@@ -76,8 +76,9 @@ Graphic of the estimated lag distributions:
 ```
 plot(m4)
 ```
-Example with panel data
+Example with panel data:
 ```
+# load data on EU farm performance and public subsidies
 data(cmef)
 y_name <- "TFP"
 x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
