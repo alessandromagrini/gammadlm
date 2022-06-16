@@ -1,7 +1,7 @@
 # gammadlm
 __Maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables__
 
-`gammadlm` is an R package implementing the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. A panel structure can be taken into account. The reference paper is:
+`gammadlm` is an R package implementing the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. Data may have a panel structure, even unbalanced. The reference paper is:
 
 A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. _Austrian Journal of Statistics_, 51(2): 40-46. DOI: <a href="https://doi.org/10.17713/ajs.v51i2.1244">10.17713/ajs.v51i2.1244</a>
 
@@ -76,3 +76,20 @@ Graphic of the estimated lag distributions:
 ```
 plot(m4)
 ```
+Example with panel data
+```
+data(cmef)
+y_name <- "TFP"
+x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
+z_name <- c("Land","Output_total")
+
+# compute logarithmic differences (yearly relative changes)
+cmefLR <- preProcess(c(y_name,x_name,z_name),
+  unit="Country",time="Year", data=cmef, box.cox=0, ndiff=1)
+
+# model (since data are differenced, intercepts represent the coefficients of country-specific linear trends)
+m_cmef <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
+  unit="Country", time="Year", data=cmefLR, add.intercept=FALSE,
+  control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
+summary(m_cmef)
+plot(m_cmef)
