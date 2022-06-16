@@ -77,10 +77,12 @@ W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasti
 \seealso{\link{unirootTest}; \link{lagCoef}; \link{plot.gammadlm}.
 }
 \examples{
+# load data on Bitcoin and US stock market price
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]
 
 # compute logarithmic differences (yearly relative changes)
+#   to achieve weak stationarity
 mydataLR <- preProcess(c("BTC","DJA","IXIC","GSPC"),
   time="Date", data=mydata, box.cox=0, ndiff=1)
 
@@ -118,20 +120,28 @@ summary(m2)
 
 ###  Example with panel data  ###
 
-data(cmef)
+# load data on farm performance and subsidies in EU countries, 2004-2019
+data(fadn)
+
+# selected variables:
+#  Y: productivity
+#  X: subsidies
+#  Z: utilized agricultural area (dimensional class),
+#     total output (economic class)
 y_name <- "TFP"
 x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
 z_name <- c("Land","Output_total")
 
 # compute logarithmic differences (yearly relative changes)
-cmefLR <- preProcess(c(y_name,x_name,z_name),
-  unit="Country",time="Year", data=cmef, box.cox=0, ndiff=1)
+#   to achieve weak stationarity
+fadnLR <- preProcess(c(y_name,x_name,z_name),
+  unit="Country",time="Year", data=fadn, box.cox=0, ndiff=1)
 
-## model: NOT RUN
-##  (since data are differenced, intercepts represent the
-##   coefficients of country-specific linear trends)
-#m_cmef <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
-#  unit="Country", time="Year", data=cmefLR, add.intercept=FALSE,
-#  control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
-#summary(m_cmef)
+# model
+#  (since data are differenced, intercepts represent the
+#   coefficients of country-specific linear trends)
+m_fadn <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
+  unit="Country", time="Year", data=fadnLR, add.intercept=FALSE,
+  control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
+summary(m_fadn)
 }
