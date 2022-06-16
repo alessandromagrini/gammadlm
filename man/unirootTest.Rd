@@ -2,9 +2,9 @@
 \alias{unirootTest}
 \title{Unit root tests}
 \description{Augmented Dickey-Fuller (ADF) and Kwiatkowski-Phillips-Schmidt-Shin (KPSS) tests for a multivariate time series, eventually structured as a balanced or unbalanced panel.}
-\usage{unirootTest(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL)}
+\usage{unirootTest(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL)}
 \arguments{
-  \item{var.names}{Character vector including the name of the variables to be differenced. If \code{NULL} (the default), all the quantitative variables in the dataset provided to argument \code{data} will be differenced, with the exception of the variable indicated in \code{time}.}
+  \item{var.names}{Character vector including the name of the variables to be differenced.}
   \item{unit}{Character containing the name of the units of observation in case of a panel structure. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in \code{var.names}, \code{unit} and \code{time}.}
@@ -53,10 +53,10 @@ mydata <- btc[which(btc$Date>="2020-04-01"),]
 
 # tests on time series in level ('box.cox'=1 by default):
 #   there are some unit roots
-unirootTest(var.names=c("BTC","DJA","IXIC","GSPC"), time="Date",
+unirootTest(c("BTC","DJA","IXIC","GSPC"), time="Date",
   data=mydata)
   
 # tests on time series in log return: ok
-unirootTest(var.names=c("BTC","DJA","IXIC","GSPC"), time="Date",
+unirootTest(c("BTC","DJA","IXIC","GSPC"), time="Date",
   data=mydata, box.cox=0, ndiff=1)
 }

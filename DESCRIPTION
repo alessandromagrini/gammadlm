@@ -3,12 +3,12 @@ Type: Package
 Title: Maximum Likelihood Estimation of the Gamma Distributed-Lag Model
         with Multiple Explanatory Variables
 Version: 0.1.1
-Date: 2022-04-07
+Date: 2022-06-16
 Author: Alessandro Magrini
 Maintainer: Alessandro Magrini <alessandro.magrini@unifi.it>
-Description: Implementation of the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables (Magrini, 2022 <doi:10.17713/ajs.v51i2.1244>). A panel structure, even unbalanced, can be taken into account.
+Description: Implementation of the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables (Magrini, 2022 <doi:10.17713/ajs.v51i2.1244>). Data may have a panel structure, even unbalanced.
 Depends: R (>= 3.5.0)
 Imports: graphics, stats
 License: GPL-2
 NeedsCompilation: no
-Packaged: 2022-04-07 15:14:56 UTC; Alessandro
+Packaged: 2022-06-16 13:18:15 UTC; Alessandro

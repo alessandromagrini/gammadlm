@@ -1,7 +1,7 @@
 \name{gammadlm}
 \alias{gammadlm}
 \title{Estimation of a Gamma distributed-lag model}
-\description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. A balanced or unbalanced panel structure can be taken into account.}
+\description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. Data may have a panel structure, even unbalanced.}
 \usage{gammadlm(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
   offset=rep(0,length(x.names)), add.intercept=TRUE, control=list(nstart=NULL,
   delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE)}
@@ -33,6 +33,7 @@
   \item{\code{add.intercept}: }{logical value indicating whether the model includes the intercept;}
   \item{\code{par}: }{matrix including the shape parameters for each variable in \code{x.names} (by column);}
   \item{\code{variables}: }{list including the names of the variables provided to arguments \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time}.}
+  \item{\code{control}: }{list including control options used in parameter estimation;}
   \item{\code{unit.id}: }{list including the row names of the observations for each unit. \code{NULL} if \code{unit} is \code{NULL}.}
   \item{\code{data}: }{data.frame including the data used for parameter estimation.}
   \item{\code{local.max}: }{list including all the models fitted at each restart.}
@@ -78,7 +79,10 @@ W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasti
 \examples{
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]
-mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
+
+# compute logarithmic differences (yearly relative changes)
+mydataLR <- preProcess(c("BTC","DJA","IXIC","GSPC"),
+  time="Date", data=mydata, box.cox=0, ndiff=1)
 
 # estimation with pre-specified shape parameters (simple OLS)
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
@@ -110,4 +114,24 @@ summary(m2)
 #m4 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
 #  control=list(peak.lim=pklim, length.lim=lenlim, nstart=50))
 #summary(m4)  ## better fit than m2
+
+
+###  Example with panel data  ###
+
+data(cmef)
+y_name <- "TFP"
+x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
+z_name <- c("Land","Output_total")
+
+# compute logarithmic differences (yearly relative changes)
+cmefLR <- preProcess(c(y_name,x_name,z_name),
+  unit="Country",time="Year", data=cmef, box.cox=0, ndiff=1)
+
+## model: NOT RUN
+##  (since data are differenced, intercepts represent the
+##   coefficients of country-specific linear trends)
+#m_cmef <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
+#  unit="Country", time="Year", data=cmefLR, add.intercept=FALSE,
+#  control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
+#summary(m_cmef)
 }

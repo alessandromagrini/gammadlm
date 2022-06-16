@@ -2,10 +2,10 @@
 \alias{preProcess}
 \title{Preprocessing of time series data}
 \description{Application of the Box-Cox transformation and/or differencing to a multivariate time series, eventually structured as a balanced or unbalanced panel.}
-\usage{preProcess(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
+\usage{preProcess(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
   imputation=TRUE, em.control=list(nlags=NULL, tol=1e-4, maxit=1000, quiet=FALSE))}
 \arguments{
-  \item{var.names}{Character vector including the name of the variables to be differenced. If \code{NULL} (the default), all the quantitative variables in the dataset provided to argument \code{data} will be differenced, with the exception of the variable indicated in \code{time}.}
+  \item{var.names}{Character vector including the name of the variables to be differenced.}
   \item{unit}{Character containing the name of the units of observation in case of a panel structure. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in \code{var.names}, \code{unit} and \code{time}.}
@@ -60,9 +60,4 @@ mydataLR <- preProcess(var.names=c("BTC","DJA","IXIC","GSPC"), time="Date",
   data=mydata, box.cox=0, ndiff=1)
 summary(mydataLR)
 plot(ts(mydataLR[,c("BTC","DJA","IXIC","GSPC")]), main="")
-
-# same result by omitting 'var.names'
-mydataLR2 <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
-summary(mydataLR2)
-plot(ts(mydataLR2[,c("BTC","DJA","IXIC","GSPC")]), main="")
 }

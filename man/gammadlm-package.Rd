@@ -2,13 +2,13 @@
 \alias{gammadlm-package}
 \docType{package}
 \title{Maximum Likelihood Estimation of the Gamma Distributed-Lag Model with Multiple Explanatory Variables}
-\description{Implementation of the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables (Magrini, 2022 <doi:10.17713/ajs.v51i2.1244>). A balanced or unbalanced panel structure can be taken into account.}
+\description{Implementation of the hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables (Magrini, 2022 <doi:10.17713/ajs.v51i2.1244>). Data may have a panel structure, even unbalanced.}
 \details{
   \tabular{ll}{
   Package: \tab gammadlm\cr
   Type: \tab Package\cr
   Version: \tab 0.1.1\cr
-  Date: \tab 2022-04-07\cr
+  Date: \tab 2022-06-16\cr
   License: \tab GPL-2
   }
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.

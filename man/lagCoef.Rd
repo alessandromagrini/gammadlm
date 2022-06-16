@@ -19,7 +19,8 @@ Each component is an object of class \code{data.frame} containing estimation, as
 \examples{
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]
-mydataLR <- preProcess(time="Date", data=mydata, box.cox=0, ndiff=1)
+mydataLR <- preProcess(c("BTC","DJA","IXIC","GSPC"),
+  time="Date", data=mydata, box.cox=0, ndiff=1)
 
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)

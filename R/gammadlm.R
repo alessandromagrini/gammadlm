@@ -1,8 +1,6 @@
 ### DA FARE
 #
-# - check opzione 'control' in gammadlm()
-# - aggiungere dataset simulato con dati panel
-#
+# - quandt test
 # - metodo predict
 # - draw sample
 # - gam_inits(): migliorare l'efficienza
@@ -214,9 +212,8 @@ kpssFun <- function(x, max.lag) {
   }
 
 # perform unit root test
-unirootTest <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
+unirootTest <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff, imputation=FALSE)
-  if(is.null(var.names)) var.names <- names(attr(dataD,"box.cox"))
   if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   max.lag <- max.lag[1]
   if(!is.numeric(max.lag)) max.lag <- NULL else max.lag <- max(0,ceiling(max.lag))
@@ -245,14 +242,14 @@ print.unirootTest <- function(x, ...) {
   }
 
 # function for differencing (auxiliary)
-diffFun <- function(var.names, time, data, ndiff) {
+diffFun <- function(var.names, data, ndiff) {
   newdat <- data
-  if(!is.null(time)) newdat <- newdat[order(newdat[,time]),]
   n <- nrow(data)
   for(i in 1:length(var.names)) {
     if(ndiff[var.names[i]]>0) {
       idat <- linInterp(data[,var.names[i]])
-      newdat[,var.names[i]] <- idat-c(rep(NA,ndiff[i]),idat[1:(n-ndiff[i])])
+      idat_lag <- c(rep(NA,ndiff[i]),idat)[1:length(idat)]
+      newdat[,var.names[i]] <- idat-idat_lag
       }
     }
   attr(newdat,"ndiff") <- ndiff
@@ -260,28 +257,20 @@ diffFun <- function(var.names, time, data, ndiff) {
   }
 
 # pre-processing
-preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
+preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
   imputation=TRUE, em.control=list(nlags=NULL,tol=1e-4,maxit=1000,quiet=FALSE)) {
   #
+  if(missing(data)) stop("Argument 'data' is missing")
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
-  #
-  is.dummy <- function(x) {
-    dom <- sort(unique(na.omit(x)))
-    length(dom)==2&dom[1]==0&dom[2]==1
-    }
-  if(is.null(var.names)|length(na.omit(var.names))==0) {
-    var.names <- setdiff(colnames(data),c(unit,time))
-    if(length(var.names)==0) stop("No quantitative variable found")
-    x2del <- c()
-    for(i in 1:length(var.names)) {
-      if(!is.numeric(data[,var.names[i]])|is.dummy(data[,var.names[i]])) x2del <- c(x2del,var.names[i])
-      }
-    if(length(x2del)>0) var.names <- setdiff(var.names,x2del)
-    if(length(var.names)==0) stop("No quantitative variable found")
+  if(missing(var.names)) stop("Argument 'var.names' is missing")
+  if(!is.character(var.names)) {
+    stop("Argument 'var.names' must be a character vector")
     } else {
-    auxchk <- setdiff(var.names,colnames(data))  
-    if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+    var.names <- na.omit(var.names)
+    if(length(var.names)<1) stop("Argument 'var.names' must be a character vector of length 1 or greater")
     }
+  auxchk <- setdiff(var.names,colnames(data))  
+  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
   #
   unit <- unit[1]
   if(!is.null(unit)&&is.na(unit)) unit <- NULL
@@ -289,6 +278,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
     if(length(intersect(unit,var.names))>0) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
     if(sum(is.na(data[,unit]))>0) stop("Variable '",unit,"' provided to argument 'unit' contains missing values")
+    data[,unit] <- factor(data[,unit])
     }
   #
   time <- time[1]
@@ -298,6 +288,12 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     if(length(intersect(time,var.names))>0) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
     if(length(intersect(time,unit))>0) stop("Variable '",time,"' appears in both arguments 'unit' and 'time'")
     if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
+    if(sum(is.na(data[,time]))>0) stop("Variable '",time,"' provided to argument 'time' contains missing values")
+    if(is.null(unit)) {
+      if(sum(duplicated(data[,time]))>0) stop("Variable '",time,"' contains duplicated values")
+      } else {
+      if(sum(sapply(split(data,data[,unit]),function(x){sum(duplicated(x[,time]))}))>0) stop("Variable '",time,"' contains duplicated values")
+      }
     }
   #
   if(!is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
@@ -329,10 +325,17 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
     ndiff[which(is.na(ndiff))] <- 0
     }
   if(sum(ndiff<0|round(ndiff)!=ndiff)>0) stop("Argument 'ndiff' must contain non-negative integer values")
-  #
   imputation <- imputation[1]
   if(is.na(imputation)||(!is.logical(imputation)|is.null(imputation))) imputation <- TRUE
-  #
+  # sort by time
+  if(!is.null(time)) {
+    if(is.null(unit)) {
+      data <- data[order(data[,time]),]
+      } else {
+      data <- data[order(data[,unit],data[,time]),]
+      }
+    }
+  # box-cox
   dataL <- data
   for(i in 1:length(var.names)) {
     ilam <- box.cox[var.names[i]]
@@ -342,7 +345,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
       }
     dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
     }
-  #
+  # differencing
   if(is.null(unit)) {
     n <- nrow(data)
     for(i in 1:length(var.names)) {
@@ -351,7 +354,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
         warning("Differencing not applied to variable '",var.names[i],"'",call.=F)
         }
       }
-    dataD <- diffFun(var.names=var.names, time=time, data=dataL, ndiff=ndiff)
+    dataD <- diffFun(var.names=var.names, data=dataL, ndiff=ndiff)
     attr(dataD,"box.cox") <- box.cox
     attr(dataD,"ndiff") <- ndiff
     if(max(ndiff)>0) {
@@ -372,7 +375,7 @@ preProcess <- function(var.names=NULL, unit=NULL, time=NULL, data, box.cox=1, nd
       ind <- which(data[,unit]==gr[w])
       n_gr[w] <- length(ind)
       if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
-      dataD[ind,] <- diffFun(var.names=var.names, time=time, data=dataL[ind,], ndiff=ndiff)
+      dataD[ind,] <- diffFun(var.names=var.names, data=dataL[ind,], ndiff=ndiff)
       val0[w,] <- as.numeric(data[ind[1],var.names])
       }
     n <- max(n_gr)
@@ -415,7 +418,7 @@ unconsKernel <- function(x, nlag, imputation=F) {
     n <- length(x)
     res <- x
     for(i in 1:nlag) {
-      ilx <- c(rep(NA,i),x[1:(n-i)])
+      ilx <- c(rep(NA,i),x)[1:length(x)]
       res <- cbind(res,ilx)
       }
     colnames(res) <- 0:nlag
@@ -756,15 +759,19 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
 optFormat <- function(optList, nomi, val) {
   auxopt <- optList[nomi]
   if(is.null(auxopt)) auxopt <- vector("list",length=length(nomi))
+  val <- na.omit(val)[1:2]
+  if(is.na(val[1])) val[1] <- -Inf
+  if(is.na(val[2])) val[2] <- Inf
   for(i in 1:length(nomi)) {
-    iopt <- auxopt[[i]]
-    if(!is.numeric(iopt)) iopt <- NULL 
-    if(length(iopt)==1) {
-      iopt <- rep(iopt,2)
-      } else if(length(iopt)>2) {
-      iopt <- iopt[1:2]
-      } else if(length(iopt)<1) {
+    iopt <- na.omit(auxopt[[i]])[1:2]
+    if(!is.numeric(iopt)) {
       iopt <- val
+      } else {
+      if(is.na(iopt[1])) iopt[1] <- val[1]
+      if(is.na(iopt[2])) iopt[2] <- val[2]
+      iopt[1] <- min(max(iopt[1],val[1]),val[2])
+      iopt[2] <- min(max(iopt[2],val[1]),val[2])
+      if(iopt[1]>iopt[2]) iopt[2] <- iopt[1]
       }
     auxopt[[i]] <- iopt
     }
@@ -779,61 +786,90 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
   #
   if(missing(y.name)) stop("Argument 'y.name' is missing")
-  if(length(y.name)>1) y.name <- y.name[1]
-  if((y.name%in%colnames(data))==F) stop("Unknown variable '",y.name,"' provided to argument 'y.name'")
-  if(sum(is.na(data[,y.name]))>0) stop("Variable '",y.name,"' contains missing values")
+  if(!is.character(y.name)) {
+    stop("Argument 'y.name' must be a character vector of length 1")
+    } else {
+    y.name <- na.omit(y.name)
+    if(length(y.name)!=1) stop("Argument 'y.name' must be a character vector of length 1")
+    }
+  auxchk <- setdiff(y.name,colnames(data))  
+  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'y.name'")
   #
   if(missing(x.names)) stop("Argument 'x.names' is missing")
-  auxchk1 <- setdiff(x.names,colnames(data))
-  if(length(auxchk1)>0) stop("Unknown variable '",auxchk1[1],"' in argument 'x.names'")
-  for(i in 1:length(x.names)) {
-    if(sum(is.na(data[,x.names[i]]))>0) stop("Variable '",x.names[i],"' contains missing values")
+  if(!is.character(x.names)) {
+    stop("Argument 'x.names' must be a character vector")
+    } else {
+    x.names <- na.omit(x.names)
+    if(length(x.names)<1) stop("Argument 'x.names' must be a character vector")
     }
+  auxchk <- setdiff(x.names,colnames(data))  
+  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'x.names'")
+  if(y.name%in%x.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'x.names'")
+  #
   if(!is.null(z.names)) {
-    auxchk2 <- setdiff(z.names,colnames(data))
-    if(length(auxchk2)>0) stop("Unknown variable '",auxchk2[1],"' in argument 'z.names'")
-    for(i in 1:length(z.names)) {
-      if(sum(is.na(data[,z.names[i]]))>0) stop("Variable '",z.names[i],"' contains missing values")
+    z.names <- na.omit(z.names)
+    if(!is.character(z.names)|length(z.names)==0) stop("Argument 'z.names' must be either a character vector or NULL")
+    if(length(z.names)>0) {
+      auxchk2 <- setdiff(z.names,colnames(data))
+      if(length(auxchk2)>0) stop("Unknown variable '",auxchk2[1],"' in argument 'z.names'")
+      if(y.name%in%z.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'z.names'")
+      auxchk3 <- intersect(z.names,x.names)
+      if(length(auxchk3)>0) stop("Variable '",auxchk3[1],"' appears in both arguments 'x.names' and 'z.names'")
+      } else {
+      z.names <- NULL
       }
-    if(y.name%in%z.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'z.names'")
-    auxchk3 <- intersect(z.names,x.names)
-    if(length(auxchk3)>0) stop("Variable '",auxchk3[1],"' appears in both arguments 'x.names' and 'z.names'")
+    }
+  #
+  if(!is.null(unit)) {
+    unit <- na.omit(unit)
+    if(!is.character(unit)|length(unit)!=1) stop("Argument 'unit' must be either NULL or a character vector of length 1")
+    if(length(unit)>0) {
+      if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
+      if(length(intersect(unit,y.name))>0) stop("Variable '",unit,"' appears in both arguments 'y.name' and 'unit'")
+      if(length(intersect(unit,x.names))>0) stop("Variable '",unit,"' appears in both arguments 'x.names' and 'unit'")
+      if(length(intersect(unit,z.names))>0) stop("Variable '",unit,"' appears in both arguments 'z.names' and 'unit'")
+      if(sum(is.na(data[,unit]))>0) stop("Variable '",unit,"' provided to argument 'unit' contains missing values")
+      data[,unit] <- factor(data[,unit])
+      } else {
+      unit <- NULL  
+      }
     }
   #
   if(!is.null(time)) {
-    if(length(time)>1) time <- time[1]
-    if((time%in%colnames(data))==F) stop("Unknown variable '",time,"' provided to argument 'time'")
-    if(time%in%y.name) stop("Variable '",time,"' appears in both arguments 'y.name' and 'time'")
-    if(time%in%x.names) stop("Variable '",time,"' appears in both arguments 'x.names' and 'time'")
-    if(!is.null(z.names) && time%in%z.names) stop("Variable '",time,"' appears in both arguments 'z.names' and 'time'")
-    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
-    }
-  #
-  if(is.null(unit)) {
-    if(!is.null(time)) data <- data[order(data[,time]),]
-    } else {
-    if(length(unit)>1) unit <- unit[1]
-    if((unit%in%colnames(data))==F) stop("Unknown variable '",unit,"' provided to argument 'unit'")
-    if(unit%in%y.name) stop("Variable '",unit,"' appears in both arguments 'y.name' and 'unit'")
-    if(unit%in%x.names) stop("Variable '",unit,"' appears in both arguments 'x.names' and 'unit'")
-    if(unit%in%z.names) stop("Variable '",unit,"' appears in both arguments 'z.names' and 'unit'")
-    if(unit%in%time) stop("Variable '",unit,"' appears in both arguments 'time' and 'unit'")
-    data[,unit] <- factor(data[,unit])
-    if(!is.null(time)) {
-      gr <- levels(data[,unit])
-      for(w in gr) {
-        ind <- which(data[,unit]==w)
-        idat <- data[ind,]
-        data[ind,] <- idat[order(idat[,time]),]
+    time <- na.omit(time)
+    if(!is.character(time)|length(time)!=1) stop("Argument 'time' must be either NULL or a character vector of length 1")
+    if(length(time)>0) {
+      if(length(setdiff(time,colnames(data)))>0) stop("Unknown variable '",time,"' provided to argument 'time'")
+      if(length(intersect(time,unit))>0) stop("Variable '",time,"' appears in both arguments 'unit' and 'time'")
+      if(length(intersect(time,y.name))>0) stop("Variable '",time,"' appears in both arguments 'y.name' and 'time'")
+      if(length(intersect(time,x.names))>0) stop("Variable '",time,"' appears in both arguments 'x.names' and 'time'")
+      if(length(intersect(time,z.names))>0) stop("Variable '",time,"' appears in both arguments 'z.names' and 'time'")
+      if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
+      if(sum(is.na(data[,time]))>0) stop("Variable '",time,"' provided to argument 'time' contains missing values")
+      if(is.null(unit)) {
+        if(sum(duplicated(data[,time]))>0) stop("Variable '",time,"' contains duplicated values")
+        } else {
+        if(sum(sapply(split(data,data[,unit]),function(x){sum(duplicated(x[,time]))}))>0) stop("Variable '",time,"' contains duplicated values")
         }
+      } else {
+      time <- NULL  
       }
-    if(nlevels(data[,unit])<=1) unit <- NULL
+    }
+  if(!is.null(time)) {
+    if(is.null(unit)) {
+      data <- data[order(data[,time]),]
+      } else {
+      data <- data[order(data[,unit],data[,time]),]
+      }
     }
   #
+  quiet <- quiet[1]
+  if(is.na(quiet)||(!is.logical(quiet)|is.null(quiet))) quiet <- FALSE
+  #data <- data[complete.cases(data[,c(unit,time,y.name,x.names,z.names)]),]
   nstart <- control$nstart[1]
   if(is.null(nstart)) nstart <- 1
   if(!is.numeric(nstart)) nstart <- 1 else nstart <- max(1,ceiling(nstart))
-  #if(nstart==1) quiet <- T
+  if(nstart==1) quiet <- T
   #
   #max.try <- control$max.try
   #if(is.null(max.try)) max.try <- 50
@@ -866,7 +902,9 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     }
   if(y.name%in%x.names && offset[y.name]<1) offset[y.name] <- 1
   #
-  delta.lim <- optFormat(delta.lim, x.names, c(0,1))
+  if(!is.list(delta.lim)&length(delta.lim)==2) delta.lim <- optFormat(list(), x.names, delta.lim)
+  delta.lim <- optFormat(delta.lim, x.names, c(0,1))    
+  if(!is.list(lambda.lim)&length(lambda.lim)==2) lambda.lim <- optFormat(list(), x.names, lambda.lim)
   lambda.lim <- optFormat(lambda.lim, x.names, c(0,1))
   if(sum(sapply(delta.lim,function(x){x[1]==x[2]})==F)==0 &
       sum(sapply(lambda.lim,function(x){x[1]==x[2]})==F)==0) {
@@ -874,11 +912,14 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     } else {
     par <- NULL
     }
+  #
   if(!is.null(par)) {
     modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=data, normalize=T, add.intercept=add.intercept)
     } else {
     p <- length(x.names)
+    if(!is.list(peak.lim)&length(peak.lim)==2) peak.lim <- optFormat(list(), x.names, peak.lim)
     peak.lim <- optFormat(peak.lim, x.names, c(0,Inf))
+    if(!is.list(length.lim)&length(length.lim)==2) length.lim <- optFormat(list(), x.names, length.lim)
     length.lim <- optFormat(length.lim, x.names, c(0,Inf))
     #if(is.null(sign)) sign <- rep(0,p)
     #
@@ -998,6 +1039,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     } else {
     idg <- lapply(split(data, data[,unit]), rownames)  
     }
+  modOK$control <- list(nstart=nstart,delta.lim=delta.lim,lambda.lim=lambda.lim,peak.lim=peak.lim,length.lim=length.lim)
   modOK$unit.id <- idg
   modOK$data <- data[,c(unit,time,y.name,x.names,z.names)]
   #
