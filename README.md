@@ -78,8 +78,14 @@ plot(m4)
 ```
 Example with panel data:
 ```
-# load data on EU farm performance and public subsidies
+# load data on farm performance and subsidies in EU countries, 2004-2019
 data(cmef)
+
+# selected variables:
+#  Y: productivity
+#  X: subsidies
+#  Z: utilized agricultural area (dimensional class),
+#     total output (economic class)
 y_name <- "TFP"
 x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
 z_name <- c("Land","Output_total")
