@@ -79,7 +79,7 @@ plot(m4)
 Example with panel data:
 ```
 # load data on farm performance and subsidies in EU countries, 2004-2019
-data(cmef)
+data(fadn)
 
 # selected variables:
 #  Y: productivity
@@ -91,12 +91,10 @@ x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
 z_name <- c("Land","Output_total")
 
 # Trasform the variables in logarithmic differences (yearly relative changes) to achieve weak stationarity
-cmefLR <- preProcess(c(y_name,x_name,z_name),
-  unit="Country",time="Year", data=cmef, box.cox=0, ndiff=1)
+fadnLR <- preProcess(c(y_name,x_name,z_name), unit="Country",time="Year", data=fadn, box.cox=0, ndiff=1)
 
 # model (since data are differenced, intercepts represent the coefficients of country-specific linear trends)
-m_cmef <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
-  unit="Country", time="Year", data=cmefLR, add.intercept=FALSE,
-  control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
-summary(m_cmef)
-plot(m_cmef)
+m_fadn <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name, unit="Country", time="Year", data=fadn,
+  add.intercept=FALSE, control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
+summary(m_fadn)  ## summary of estimation
+plot(m_fadn)     ## graphic of the estimated lag distributions
