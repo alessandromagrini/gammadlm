@@ -17,17 +17,14 @@ Each component is an object of class \code{data.frame} containing estimation, as
 %\references{}
 \seealso{\link{gammadlm}; \link{plot.gammadlm}.}
 \examples{
+\dontrun{
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]
 mydataLR <- preProcess(c("BTC","DJA","IXIC","GSPC"),
   time="Date", data=mydata, box.cox=0, ndiff=1)
-
-dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
-lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)
-m0 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
-  control=list(delta.lim=dval, lambda.lim=lval))
+m0 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR)
 
 lagCoef(m0)  ## coefficients shown up to the 99.9th percentile lag
 lagCoef(m0, max.lag=11)  ## coefficients shown up to lag 11
-lagCoef(m0, cumulative=TRUE)  ## cumulative coefficients
+lagCoef(m0, cumulative=TRUE)  ## cumulative coefficients}
 }

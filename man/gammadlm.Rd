@@ -9,7 +9,7 @@
   \item{y.name}{Character including the name of the response variable, that must be a quantitative variable. If a vector with length greater than 1 is provided, only the first element is considered.}  
   \item{x.names}{Character vector of length 1 or greater including the names of the explanatory variables with lags, that must be quantitative variables. If the name of the response variable is indicated in \code{x.names}, then the autoregressive lag distribution will be estimated.}
   \item{z.names}{Character vector including the names of the explanatory variables without lags (optional). They may be either quantitative or qualitative variables. If \code{NULL} (the default), no explanatory variable without lags is included in the model.}
-  \item{unit}{Character containing the name of the units of observation in case of a panel structure. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
+  \item{unit}{Character containing the name of the variable that identifies the units of observation. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in the model. Variables in \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time} cannot contain missing values.}
   \item{offset}{Named vector with non-negative real values indicating the offset for variables in \code{x.names}. If \code{offset} is of length one and has no names, the same offset is used for all variables in \code{x.names}. If a variable in \code{x.names} has no name in \code{offset} or a negative value is provided, value 0 is assumed. If the name of the response variable is indicated in \code{x.names} and a value less than 1 is provided, value 1 is assumed. Default value of \code{offset} is 0.}
@@ -105,21 +105,23 @@ m2 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
   control=list(peak.lim=pklim, length.lim=lenlim))
 summary(m2)
 
-## 50 random restarts without constraints: NOT RUN
-#set.seed(100)
-#m3 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
-#  control=list(nstart=50))
-#summary(m3)  ## better fit than m1
-##
-## 50 random restarts with constraints: NOT RUN
-#set.seed(100)
-#m4 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
-#  control=list(peak.lim=pklim, length.lim=lenlim, nstart=50))
-#summary(m4)  ## better fit than m2
+\dontrun{
+# 50 random restarts without constraints
+set.seed(100)
+m3 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
+  control=list(nstart=50))
+summary(m3)  ## better fit than m1
+
+# 50 random restarts with constraints: NOT RUN
+set.seed(100)
+m4 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydataLR,
+  control=list(peak.lim=pklim, length.lim=lenlim, nstart=50))
+summary(m4)  ## better fit than m2}
 
 
 ###  Example with panel data  ###
 
+\dontrun{
 # load data on farm performance and subsidies in EU countries, 2004-2019
 data(fadn)
 
@@ -143,5 +145,5 @@ fadnLR <- preProcess(c(y_name,x_name,z_name),
 m_fadn <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
   unit="Country", time="Year", data=fadnLR, add.intercept=FALSE,
   control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
-summary(m_fadn)
+summary(m_fadn)}
 }

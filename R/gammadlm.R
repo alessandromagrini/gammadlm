@@ -213,6 +213,7 @@ kpssFun <- function(x, max.lag) {
 
 # perform unit root test
 unirootTest <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
+  var.names <- var.names[which(!is.na(var.names))]
   dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff, imputation=FALSE)
   if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   max.lag <- max.lag[1]
@@ -266,7 +267,7 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
   if(!is.character(var.names)) {
     stop("Argument 'var.names' must be a character vector")
     } else {
-    var.names <- na.omit(var.names)
+    var.names[which(!is.na(var.names))]
     if(length(var.names)<1) stop("Argument 'var.names' must be a character vector of length 1 or greater")
     }
   auxchk <- setdiff(var.names,colnames(data))  
@@ -789,7 +790,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(!is.character(y.name)) {
     stop("Argument 'y.name' must be a character vector of length 1")
     } else {
-    y.name <- na.omit(y.name)
+    y.name <- y.name[which(!is.na(y.name))]
     if(length(y.name)!=1) stop("Argument 'y.name' must be a character vector of length 1")
     }
   auxchk <- setdiff(y.name,colnames(data))  
@@ -799,7 +800,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(!is.character(x.names)) {
     stop("Argument 'x.names' must be a character vector")
     } else {
-    x.names <- na.omit(x.names)
+    x.names[which(!is.na(x.names))]
     if(length(x.names)<1) stop("Argument 'x.names' must be a character vector")
     }
   auxchk <- setdiff(x.names,colnames(data))  
@@ -807,7 +808,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(y.name%in%x.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'x.names'")
   #
   if(!is.null(z.names)) {
-    z.names <- na.omit(z.names)
+    z.names[which(!is.na(z.names))]
     if(!is.character(z.names)|length(z.names)==0) stop("Argument 'z.names' must be either a character vector or NULL")
     if(length(z.names)>0) {
       auxchk2 <- setdiff(z.names,colnames(data))
@@ -821,7 +822,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     }
   #
   if(!is.null(unit)) {
-    unit <- na.omit(unit)
+    unit <- unit[which(!is.na(unit))]
     if(!is.character(unit)|length(unit)!=1) stop("Argument 'unit' must be either NULL or a character vector of length 1")
     if(length(unit)>0) {
       if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
@@ -836,7 +837,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     }
   #
   if(!is.null(time)) {
-    time <- na.omit(time)
+    time <- time[which(!is.na(time))]
     if(!is.character(time)|length(time)!=1) stop("Argument 'time' must be either NULL or a character vector of length 1")
     if(length(time)>0) {
       if(length(setdiff(time,colnames(data)))>0) stop("Unknown variable '",time,"' provided to argument 'time'")

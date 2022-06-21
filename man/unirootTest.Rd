@@ -5,7 +5,7 @@
 \usage{unirootTest(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL)}
 \arguments{
   \item{var.names}{Character vector including the name of the variables to be differenced.}
-  \item{unit}{Character containing the name of the units of observation in case of a panel structure. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
+  \item{unit}{Character containing the name of the variable that identifies the units of observation. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in \code{var.names}, \code{unit} and \code{time}.}
   \item{box.cox}{Named vector with non-negative real values indicating the parameters of the Box-Cox transformation (Box & Cox, 1964) for variables in \code{x.names}. If \code{box.cox} has no names and length greater than one, the same ordering as in \code{x.names} is assumed. If \code{box.cox} has no names and length equal to one, the same parameter is used for all variables in \code{x.names}. Value 0 of the parameter equates to the logarithmic transformation, while value 1 means no transformation. Default is 1 for all variables in \code{x.names}.}
