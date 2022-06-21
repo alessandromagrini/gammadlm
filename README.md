@@ -78,7 +78,7 @@ plot(m4)
 ```
 Example with panel data:
 ```
-# load data on farm performance and subsidies in EU countries, 2004-2019
+# load data on farm performance and subsidies in EU countries (FADN database)
 data(fadn)
 
 # selected variables:
