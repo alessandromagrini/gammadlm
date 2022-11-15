@@ -17,7 +17,7 @@
 \value{One list for each variable in \code{var.names}, each with three components:
 \itemize{
 \item{\code{statistic}: }{test statistic for each test};
-\item{\code{lag.selected}: }{lag length selected for each test};
+\item{\code{lag.order}: }{lag length selected for each test};
 \item{\code{p.value}: }{p-value of each test, which is a single value if \code{unit} is \code{NULL}, otherwise one value for each unit of observation plus another one indicating the combined p-value};
 \item{\code{box.cox}: }{parameter of the Box-Cox transformation for each variable subjected to the tests};
 \item{\code{ndiff}: }{order of differencing for each variable subjected to the tests}.
@@ -32,7 +32,7 @@ If the number of differencing exceeds \code{n-5}, where \code{n} is the sample s
 \details{The variables subjected to the tests must be quantitative.
 Missing values internal to the time series are imputed through linear interpolation, otherwise they are deleted out.
 
-The lag length at which to perform the tests is selected through AIC-based backward elimination starting from the lag length specified in argument \code{max.lag}.
+The lag length at which to perform the tests is selected through BIC-based backward elimination starting from the lag length specified in argument \code{max.lag}.
 
 The null hypothesis of the ADF test is the presence of unit roots, while the null hypothesis of the KPSS test is the absence of unit roots.
 Therefore, p-value higher than 0.05 for the ADF test or p-value lower than 0.05 for the KPSS test suggest the presence of unit roots and the need of further differencing.
@@ -46,7 +46,7 @@ D. A. Dickey, and W. A. Fuller (1981). Likelihood ratio statistics for autoregre
 
 D. Kwiatkowski, P. C. B. Phillips, P. Schmidt, and Y. Shin (1992). Testing the null hypothesis of stationarity against the alternative of a unit root. \emph{Journal of Econometrics}, 54(1-3): 159-178. DOI: 10.1016/0304-4076(92)90104-Y
 }
-\seealso{\link{preProcess}.}
+%\seealso{\link{preProcess}.}
 \examples{
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]

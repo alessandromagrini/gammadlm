@@ -2,8 +2,7 @@
 \alias{fadn}
 \docType{data}
 \title{Farm performance and subsidies in EU countries}
-\description{Aggregated data on farm performance and public subsidies in EU countries in the period 1989-2019.
-Source: Farm Accountancy Data Network (FADN, European Commission, 2020).}
+\description{Data on farm performance and public subsidies in EU countries in the period 1989-2019 from the Farm Accountancy Data Network (FADN, European Commission, 2020). Values refer to nationally representative farms.}
 \usage{data(fadn)}
 \format{
   A data.frame with a total of 668 observations on the following 15 variables:

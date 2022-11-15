@@ -1,30 +1,44 @@
 ### DA FARE
 #
+# - diagnostiche grafiche
+# - tsEM(): selezione automatica del lag order
+
+# - metodo predict (inversione differenze e box.cox)
 # - quandt test
-# - metodo predict
 # - draw sample
-# - gam_inits(): migliorare l'efficienza
+# - gam_inits(): migliorare il campionamento
 # - constraint segno
 # - full covariance matrix
 
-
-# log function (auxiliary)
-logFun <- function(x) {
-  ind <- which(x<=0)
-  if(length(ind)>0) {
-    x[ind] <- min(x[setdiff(1:length(x),ind)])/2
-    }
-  log(x)
-  }
 
 # apply box-cox transformation (auxiliary)
 makeBoxCox <- function(x, par) {
   if(par==1) {
     x
     } else if(par==0) {
-    logFun(x)  
+    #ind <- which(x<=0)
+    #if(length(ind)>0) {
+    #  x[ind] <- min(x[setdiff(1:length(x),ind)])/2
+    #  }
+    log(x)
     } else {
     (x^par-1)/par  
+    }
+  }
+
+# invert box-cox transformation (auxiliary)
+invertBoxCox <- function(z, par) {
+  if(par==1) {
+    z
+    } else if(par==0) {
+    #ind <- which(x<=0)
+    #if(length(ind)>0) {
+    #  x[ind] <- min(x[setdiff(1:length(x),ind)])/2
+    #  }
+    exp(z)
+    } else {
+    #z=(x^par-1)/par  
+    (z*par+1)^(1/par)
     }
   }
 
@@ -58,8 +72,7 @@ oneTest <- function(x, unit=NULL, max.lag=NULL) {
     n <- min(nvet)
     }
   if(is.null(max.lag)) {
-    #max.lag <- min(n-3,trunc((n-1)^(1/3)))
-    max.lag <- round(sqrt(n))
+    max.lag <- floor(sqrt(n))
     } else {
     if(length(max.lag)>1) max.lag <- max.lag[1]
     if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
@@ -135,9 +148,7 @@ adfFun <- function(x, max.lag) {
       } else {
       res <- lm(yt~xt1+tt)
       }
-    suppressWarnings(
-      res.sum <- summary.lm(res)$coefficients
-      )
+    suppressWarnings(res.sum <- summary.lm(res)$coefficients)
     if(nrow(res.sum)>=2) {
       STAT <- res.sum[2,1]/res.sum[2,2]
       table <- -1*cbind(c(4.38, 4.15, 4.04, 3.99, 3.98, 3.96),
@@ -163,12 +174,13 @@ adfFun <- function(x, max.lag) {
     }
   k <- 0
   if(length(x)>=5 & var(x)>0) {  ## <--
-    if(max.lag>0) k <- ar(x,order.max=max.lag)$order
+    #if(max.lag>0) k <- ar(x, order.max=max.lag)$order
+    if(max.lag>0) k <- lagSelect(x, order.max=max.lag)
     res <- doADF(k)
     } else {
     res <- c(NaN,NaN)
     }
-  list(statistic=res[1], lag.selected=k, p.value=res[2])
+  list(statistic=res[1], lag.order=k, p.value=res[2])
   }
 
 # function for kpss test (internal use only)
@@ -203,18 +215,19 @@ kpssFun <- function(x, max.lag) {
   #
   k <- 0
   if(length(x)>=5 & var(x)>0) {  ## <--
-    if(max.lag>0) k <- ar(x,order.max=max.lag)$order
+    #if(max.lag>0) k <- ar(x, order.max=max.lag)$order
+    if(max.lag>0) k <- lagSelect(x, order.max=max.lag)
     res <- doKPSS(k)
     } else {
     res <- c(NaN,NaN)
     }
-  list(statistic=unname(res[1]), lag.selected=k, p.value=unname(res[2]))
+  list(statistic=unname(res[1]), lag.order=k, p.value=unname(res[2]))
   }
 
 # perform unit root test
 unirootTest <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   var.names <- var.names[which(!is.na(var.names))]
-  dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff, imputation=FALSE)
+  dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
   if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   max.lag <- max.lag[1]
   if(!is.numeric(max.lag)) max.lag <- NULL else max.lag <- max(0,ceiling(max.lag))
@@ -257,9 +270,8 @@ diffFun <- function(var.names, data, ndiff) {
   newdat
   }
 
-# pre-processing
-preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0,
-  imputation=TRUE, em.control=list(nlags=NULL,tol=1e-4,maxit=1000,quiet=FALSE)) {
+# pre-processing (auxiliary)
+preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0) {
   #
   if(missing(data)) stop("Argument 'data' is missing")
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
@@ -326,8 +338,6 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
     ndiff[which(is.na(ndiff))] <- 0
     }
   if(sum(ndiff<0|round(ndiff)!=ndiff)>0) stop("Argument 'ndiff' must contain non-negative integer values")
-  imputation <- imputation[1]
-  if(is.na(imputation)||(!is.logical(imputation)|is.null(imputation))) imputation <- TRUE
   # sort by time
   if(!is.null(time)) {
     if(is.null(unit)) {
@@ -342,7 +352,10 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
     ilam <- box.cox[var.names[i]]
     if(ilam!=1 & sum(data[,var.names[i]]<0,na.rm=T)>0) {
       box.cox[var.names[i]] <- ilam <- 1
-      warning("Box-Cox transformation not applied to variable '",var.names[i],"'",call.=F)
+      warning("No transformation applied to variable '",var.names[i],"'",call.=F)
+      } else if(ilam==0 & sum(data[,var.names[i]]==0,na.rm=T)>0) {
+      box.cox[var.names[i]] <- ilam <- 0.5
+      warning("Box-Cox parameter 0.5, instead of 0, applied to variable '",var.names[i],"'",call.=F)
       }
     dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
     }
@@ -389,44 +402,6 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
     attr(dataD,"box.cox") <- box.cox
     attr(dataD,"ndiff") <- ndiff
     res <- dataD[setdiff(1:nrow(data),isNA),,drop=F]
-    }
-  if(imputation & sum(is.na(res[,var.names]))>0) {
-    nlags <- em.control$nlags[1]
-    if(!is.numeric(nlags)) {
-      nlags <- NULL
-      } else {
-      nlags <- round(abs(nlags))
-      }
-    tol <- em.control$tol[1]
-    if(!is.numeric(tol)|is.null(tol)) tol <- 1e-4
-    if(tol<=0) tol <- 1e-4
-    maxit <- em.control$maxit[1]
-    if(!is.numeric(maxit)|is.null(maxit)) maxit <- 1000
-    if(maxit<=0) maxit <- 1000 else maxit <- ceiling(maxit)
-    quiet <- em.control$quiet[1]
-    if(is.na(quiet)||(!is.logical(quiet)|is.null(quiet))) quiet <- FALSE
-    resI <- EMimput(x.names=var.names, unit=unit, time=time, data=res,
-      nlags=nlags,tol=tol,maxit=maxit,quiet=quiet)
-    resI$data.imputed
-    } else {
-    res
-    }
-  }
-
-# unconstrained kernel (auxiliary)
-unconsKernel <- function(x, nlag, imputation=F) {
-  if(nlag>0) {
-    n <- length(x)
-    res <- x
-    for(i in 1:nlag) {
-      ilx <- c(rep(NA,i),x)[1:length(x)]
-      res <- cbind(res,ilx)
-      }
-    colnames(res) <- 0:nlag
-    if(imputation==T) res[which(is.na(res))] <- mean(x,na.rm=T)
-    } else {
-    res <- matrix(x,ncol=1)
-    colnames(res) <- 0
     }
   res
   }
@@ -576,7 +551,7 @@ gammaQuantile <- function(prob, par, offset=0) {
   }
 
 # fit ols with gamma lag (auxiliary)
-gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize, add.intercept) {
+gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize, add.intercept, multi.intercept) {
   p <- length(x.names)
   if(normalize) normstr <- "" else normstr <- paste(",normalize=",normalize,sep="")
   if(is.null(unit)) {
@@ -588,7 +563,11 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
     gstr <- ""
     } else {
     if(add.intercept) {
-      form0 <- paste(y.name," ~ -1+",unit,"+",sep="")
+      if(multi.intercept) {
+        form0 <- paste(y.name," ~ -1+",unit,"+",sep="")
+        } else {
+        form0 <- paste(y.name," ~ ",sep="")
+        }
       } else {
       form0 <- paste(y.name," ~ -1+",sep="")
       }
@@ -610,6 +589,7 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
   mod$par <- par
   mod$offset <- offset
   mod$add.intercept <- add.intercept
+  mod$multi.intercept <- multi.intercept
   class(mod) <- c("gammadlm","lm")
   mod
   }
@@ -705,7 +685,7 @@ visitFun <- function(par, par.list) {
   }
 
 # function for hill climbing (auxiliary)
-gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by, add.intercept) {
+gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by, add.intercept, multi.intercept) {
   p <- length(x.names)
   n <- nrow(data)
   logn <- log(n)
@@ -725,7 +705,7 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
         check0 <- visitFun(ijpar, visitList)
         if(check0==0) {
           visitList <- c(visitList,list(ijpar))
-          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F, add.intercept=add.intercept)
+          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F, add.intercept=add.intercept, multi.intercept=multi.intercept)
           ijrss <- sum(ijm$residuals^2)
           testL <- c(testL,list(ijpar))
           #ijsign <- sign(ijm$coef[-1])   <------ gestire constraint segno
@@ -752,7 +732,7 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
       fine <- 1
       }
     }
-  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T, add.intercept=add.intercept)
+  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T, add.intercept=add.intercept, multi.intercept=multi.intercept)
   list(model=modFinal,par.tested=testL)
   }
 
@@ -781,7 +761,8 @@ optFormat <- function(optList, nomi, val) {
   }
 
 # MASTER FUNCTION
-gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)), add.intercept=TRUE,
+gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)),
+  box.cox=1, ndiff=0, add.intercept=TRUE, multi.intercept=TRUE,
   control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
   #
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
@@ -864,9 +845,11 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       }
     }
   #
+  #data <- data[complete.cases(data[,c(unit,time,y.name,x.names,z.names)]),]
+  dataD <- preProcess(var.names=c(y.name,x.names,z.names), unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)  ## <--
+  #
   quiet <- quiet[1]
   if(is.na(quiet)||(!is.logical(quiet)|is.null(quiet))) quiet <- FALSE
-  #data <- data[complete.cases(data[,c(unit,time,y.name,x.names,z.names)]),]
   nstart <- control$nstart[1]
   if(is.null(nstart)) nstart <- 1
   if(!is.numeric(nstart)) nstart <- 1 else nstart <- max(1,ceiling(nstart))
@@ -915,7 +898,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
     }
   #
   if(!is.null(par)) {
-    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=data, normalize=T, add.intercept=add.intercept)
+    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=dataD, normalize=T, add.intercept=add.intercept, multi.intercept=multi.intercept)
     } else {
     p <- length(x.names)
     if(!is.list(peak.lim)&length(peak.lim)==2) peak.lim <- optFormat(list(), x.names, peak.lim)
@@ -954,8 +937,8 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
             suppressWarnings(
               ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i],
                 z.names=c(setdiff(x.names,x.names[i]),z.names),
-                unit=unit, data=data, offset=offset[x.names[i]],
-                par=cbind(igrid[j,]), add.intercept=add.intercept, normalize=F)
+                unit=unit, data=dataD, offset=offset[x.names[i]],
+                par=cbind(igrid[j,]), add.intercept=add.intercept, multi.intercept=multi.intercept, normalize=F)
               )
             ijrss <- sum(ijm$residuals^2)
             if(ijrss<irss) {
@@ -969,9 +952,9 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
           cat('\r',"Running hill climbing ...     ")
           flush.console()
           }
-        gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
+        gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=dataD,
           offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-          sign=sign, grid.by=grid.by, add.intercept=add.intercept)
+          sign=sign, grid.by=grid.by, add.intercept=add.intercept, multi.intercept=multi.intercept)
         modOK <- gs0$model
         if(quiet==F) {
           cat('\r',"Explored ",length(gs0$par.tested)," valid models       ",sep="")
@@ -983,9 +966,9 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       for(i in 1:max.start) {
         ini0 <- gam_inits(gridList=gridList, visitList=visitList, maxtry=max.start)
         if(!is.null(ini0)) {
-          gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=data,
+          gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=dataD,
             offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-            sign=sign, grid.by=grid.by, add.intercept=add.intercept)
+            sign=sign, grid.by=grid.by, add.intercept=add.intercept, multi.intercept=multi.intercept)
           } else {
           gs0 <- NULL
           stopped <- 2
@@ -1038,50 +1021,131 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   if(is.null(unit)) {
     idg <- NULL
     } else {
-    idg <- lapply(split(data, data[,unit]), rownames)  
+    idg <- lapply(split(dataD, dataD[,unit]), rownames)  
     }
   modOK$control <- list(nstart=nstart,delta.lim=delta.lim,lambda.lim=lambda.lim,peak.lim=peak.lim,length.lim=length.lim)
   modOK$unit.id <- idg
-  modOK$data <- data[,c(unit,time,y.name,x.names,z.names)]
-  #
-  #if(!is.null(modOK)) {  ## <----- fitted values aggiustati per l'autocorrelazione
-  #  resid <- modOK$residuals
-  #  arRes <- ar(resid)
-  #  if(arRes$order>0) {
-  #    epsFit <- unconsKernel(resid, nlag=arRes$order, imputation=T)%*%c(0,arRes$ar)
-  #    modOK$adj.fitted.values <- modOK$fitted.values-c(epsFit)
-  #    } else {
-  #    modOK$adj.fitted.values <- modOK$fitted.values
-  #    }
-  #  }
-  #
-  #
+  modOK$box.cox <- attr(dataD,"box.cox")
+  modOK$ndiff <- attr(dataD,"ndiff")
+  modOK$lag.order <- lagOrderCalc(modOK$residuals,modOK$unit.id)
+  modOK$data.orig <- data[,c(unit,time,y.name,x.names,z.names)]
+  modOK$data.used <- dataD[,c(unit,time,y.name,x.names,z.names)]
   if(is.null(unit)) {
     pval <- oneTest(modOK$residuals)$p.value
     } else {
-    pval <- oneTest(modOK$residuals, unit=data[,unit])$p.value["(combined)",]
+    pval <- oneTest(modOK$residuals, unit=dataD[,unit])$p.value["(combined)",]
     }
   if(pval["adf"]>0.05) warning("ADF test on residuals is not significant: regression could be spurious", call.=F)
   if(pval["kpss"]<0.05) warning("KPSS test on residuals is significant: regression could be spurious", call.=F)
   modOK
   }
 
+# get the number of intercepts (auxiliary)
+nInterc <- function(object) {
+  if(object$add.intercept) {
+    if(is.null(object$variables$unit)) {
+      1
+      } else {
+      ifelse(object$multi.intercept,length(object$unit.id),1)
+      }
+    } else {
+    0
+    }
+  }
+
+# function for p-value notation (auxiliary)
+pStars <- function(p) {
+  res <- rep("",length(p))
+  res[which(p<0.1)] <- "."
+  res[which(p<0.05)] <- "*"
+  res[which(p<0.01)] <- "**"
+  res[which(p<0.001)] <- "***"
+  res
+  }
+
 # summary method for class 'gammadlm'
 summary.gammadlm <- function(object, ...) {
   summ <- summary.lm(object, ...)
   ttab <- summ$coefficients
-  SS <- hacCalc(Xmat=model.matrix(object), resid=object$residuals, uS=summary.lm(object)$cov.unscaled, unitID=object$unit.id)
+  SS <- hacCalc(Xmat=model.matrix(object), resid=object$residuals, uS=summary.lm(object)$cov.unscaled, unitID=object$unit.id, lagsel=object$lag.order)
   bse <- sqrt(diag(SS))
   ttab[,2] <- bse
   ttab[,3] <- ttab[,1]/ttab[,2]
   ttab[,4] <- round(2*pt(-abs(ttab[,3]),object$df.residual),6)
-  summ$coefficients <- ttab
+  #
+  ttab <- data.frame(ttab,pStars(ttab[,4]))
+  colnames(ttab) <- c("Estimate","S.E.","t value","Pr(>|t|)","")
+  n_alpha <- nInterc(object)
+  if(n_alpha>0) alphaTab <- ttab[1:n_alpha,,drop=F] else alphaTab <- NULL
+  nomi <- object$variables$x.names
+  quan <- matrix(nrow=ncol(object$par),ncol=4)
+  for(i in 1:ncol(object$par)) {
+    quan[i,] <- c(peakCalc(object$par[,i])+object$offset[i],
+                  gammaQuantile(c(.5,.95,.99),object$par[,i],object$offset[i]))
+    }
+  rownames(quan) <- colnames(object$par)
+  colnames(quan) <- c("peak","50%","95%","99%")
+  par <- cbind(t(object$par),offset=object$offset,round(quan,1))
+  xTab <- ttab[(n_alpha+1):(n_alpha+length(nomi)),]
+  rownames(xTab) <- nomi
+  colnames(xTab)[1:2] <- c("theta","S.E.(theta)")
+  if(!is.null(object$variables$z.names)) {
+    zTab <- ttab[object$variables$z.names,,drop=F]
+    } else {
+    zTab <- NULL
+    }
+  if(!is.null(object$unit.id)) {
+    n_unit <- length(object$unit.id)
+    } else {
+    n_unit <- 1
+    }
+  pred <- object$fitted.values
+  obs <- object$data.used[,object$variables$y.name]
+  err <- c(rmse=sqrt(mean((obs-pred)^2)),
+           mae=mean(abs(obs-pred)),
+           mape=mean(abs((obs-pred)/obs)))
+  summ <- list(formula=object$call$formula,
+               variables=object$variables,
+               n_unit=n_unit, n=nobs(object),
+               intercept=alphaTab, par=par, x=xTab, z=zTab,
+               sigma=summ$sigma, df=object$df,
+               fstat=c(summ$fstatistic,p=1-pf(summ$fstatistic[1],summ$fstatistic[2],summ$fstatistic[3])),
+               rsq=summ$r.squared, error=err)
+  class(summ) <- "summary.gammadlm"
   summ
+  }
+
+# print method for class 'summary.gammadlm'
+print.summary.gammadlm <- function(x, ...) {
+  cat("Gamma distributed-lag model estimated through hill-climbing","\n")
+  cat("  Number of units: ",x$n_unit,sep="","\n")
+  cat("  Average number of time points per unit: ",x$n/x$n_unit,"\n",sep="")
+  cat("  Response variable: ",x$variables$y.name,"\n",sep="")
+  cat("\n")
+  cat("Gamma lag distributions","\n")
+  print(x$par)
+  print(x$x)
+  cat("\n")
+  if(!is.null(x$z)) {
+    cat("Explanatory variables without lags","\n")
+    print(x$z)
+    cat("\n")
+    }
+  if(!is.null(x$intercept)) {
+    cat("Intercepts","\n")
+    print(x$intercept)
+    cat("\n")
+    }
+  cat("In-sample prediction error","\n")
+  print(x$error)
+  cat("\n")
+  cat("Residual std. error: ",round(x$sigma,6)," on ",x$df," DFs (R-squared: ",round(x$rsq,6),")","\n",sep="")
+  cat("F statistic: ",round(x$fstat[1],6)," on ",x$fstat[2]," and ",x$fstat[3]," DFs (p-value: ",round(x$fstat[4],4),")","\n",sep="")  
   }
 
 # vcov method for class 'gammadlm'
 vcov.gammadlm <- function(object, ...) {
-  hacCalc(Xmat=model.matrix(object), resid=object$residuals, uS=summary.lm(object)$cov.unscaled, unitID=object$unit.id)
+  hacCalc(Xmat=model.matrix(object), resid=object$residuals, uS=summary.lm(object)$cov.unscaled, unitID=object$unit.id, lagsel=object$lag.order)
   }
 
 # asterisk notation (auxiliary)
@@ -1094,82 +1158,59 @@ starFun <- function(x) {
   res
   }
 
-# AR test for residuals (auxiliary)
-arTest <- function(resid, max.order=NULL) {
-  n <- length(resid)
-  if(is.null(max.order)) max.order <- trunc((length(resid)-1)^(1/3))
-  ind <- (max.order+1):n
-  y <- resid[ind]
-  p.current <- max.order
-  bicOK <- Inf
-  fine <- 0
-  while(fine==0) {
-    if(p.current>0) {
-      X <- unconsKernel(resid, nlag=p.current, imputation=F)[ind,-1,drop=F]
-      mod <- lm(y~-1+X)
-      } else {
-      mod <- lm(y~-1)
-      }
-    #ichisq <- (n-i)*summary.lm(im)$r.squared
-    #ipval <- 1-pchisq(ichisq,i)
-    bic <- extractAIC(mod,k=log(n))[2]
-    if(bic<bicOK) {
-      pOK <- p.current
-      bicOK <- bic
-      p.current <- p.current-1
-      if(p.current<0) fine <- 1
-      } else {
-      fine <- 1
-      }
-    }
-  if(pOK>0) {
-    mOK <- lm(resid~unconsKernel(resid, nlag=pOK, imputation=F)[,-1,drop=F])
-    bhat <- mOK$coef
-    names(bhat) <- 0:(length(bhat)-1)
+# selection of lag order (auxiliary)
+lagSelect <- function(y, x=NULL, order.max=NULL) {
+  n <- length(y)
+  if(is.null(order.max)) order.max <- sqrt(n)
+  if(is.null(x)) {
+    Xlag <- rep(1,n)
+    for(i in 1:order.max) Xlag <- cbind(Xlag, c(rep(NA,i),y[1:(n-i)]))
     } else {
-    mOK <- lm(resid~-1)
-    bhat <- c()
+    Xlag <- x
+    for(i in 1:order.max) Xlag <- cbind(Xlag, c(rep(NA,i),x[1:(n-i)]))
     }
-  list(order=pOK,ar=bhat,var=summary.lm(mOK)$sigma^2)
+  Xlag[1:order.max,] <- NA
+  bic <- c()
+  for(i in 1:ncol(Xlag)) {
+    bic[i] <- BIC(lm(y~Xlag[,1:i,drop=F]))
+    }
+  which.min(bic)-1
+  }
+
+# lag order of residuals (auxiliary)
+lagOrderCalc <- function(resid, unitID) {
+  if(is.null(unitID)) {
+    #max.lag <- ar(resid)$order
+    max.lag <- lagSelect(resid)
+    max.lag2 <- lagSelect(resid^2)
+    c('residuals'=max.lag,'residuals^2'=max.lag2)
+    } else {
+    max.lag <- max.lag2 <- c()
+    for(i in 1:length(unitID)) {
+      #max.lag[i] <- ar(resid[unitID[[i]]])$order
+      max.lag[i] <- lagSelect(resid[unitID[[i]]])
+      max.lag2[i] <- lagSelect(resid[unitID[[i]]]^2)
+      }
+    names(max.lag) <- names(max.lag2) <- names(unitID)
+    cbind('residuals'=max.lag,'residuals^2'=max.lag2)
+    }
   }
 
 # hac covariance matrix (auxiliary)
-hacCalc <- function(Xmat, resid, uS, unitID) {
-  homo <- ar(resid^2)$order==0
-  #if(is.null(uS)) uS <- solve(t(Xmat)%*%Xmat)
+hacCalc <- function(Xmat, resid, uS, unitID, lagsel) {
   xdel <- setdiff(colnames(Xmat),colnames(uS))
   if(length(xdel)>0) Xmat <- Xmat[,colnames(uS)]
   if(is.null(unitID)) {
-    max.lag <- ar(resid)$order
+    max.lag <- lagsel[1]
+    max.lag2 <- lagsel[2]
     } else {
-    max.lag <- c()
-    for(i in 1:length(unitID)) {
-      max.lag[i] <- ar(resid[unitID[[i]]])$order
-      }
+    max.lag <- lagsel[,1]
+    max.lag2 <- lagsel[,2]
     }
-  if(sum(max.lag)==0 & homo==T) {
-    SS <- uS*sum(resid^2)/(length(resid)-ncol(Xmat))
+  if(sum(max.lag)+sum(max.lag2)==0) {
+    s2 <- sum(resid^2)/(length(resid)-ncol(Xmat))
+    W <- diag(rep(s2,length(resid)))
     } else {
-    #
-    #Wcalc <- function(k) {
-    #  W <- matrix(0,nrow=p,ncol=p)
-    #  for(i in (k+1):n) {
-    #    W <- W+resid[i]*resid[i-k]*(Xmat[i,]%*%t(Xmat[i-k,]))
-    #    }
-    #  W
-    #  }
-    #HH <- Wcalc(0)
-    #if(max.lag>0) {
-    #  for(k in 1:max.lag) {
-    #    #iHH <- matrix(0,nrow=p,ncol=p)
-    #    #for(i in (k+1):n) {
-    #    #  iHH <- iHH+res[i]*res[i-k]*(Xmat[i,]%*%t(Xmat[i-k,])+Xmat[i-k,]%*%t(Xmat[i,]))
-    #    #  }
-    #    HH <- HH+(1-k/(max.lag+1))*2*Wcalc(k)
-    #    }
-    #  }
-    #n/(n-p)*S%*%HH%*%S
-    #
     W <- diag(resid^2)
     rownames(W) <- colnames(W) <- names(resid)
     if(is.null(unitID)) {
@@ -1182,6 +1223,8 @@ hacCalc <- function(Xmat, resid, uS, unitID) {
           }
         }
       } else {
+      W <- diag(resid^2)
+      rownames(W) <- colnames(W) <- names(resid)
       for(w in 1:length(unitID)) {
         ind <- unitID[[w]]
         wn <- length(ind)
@@ -1198,9 +1241,8 @@ hacCalc <- function(Xmat, resid, uS, unitID) {
         W[ind,ind] <- wei
         }
       }
-    SS <- uS%*%t(Xmat)%*%W%*%Xmat%*%uS
     }
-  SS
+  uS%*%t(Xmat)%*%W%*%Xmat%*%uS
   }
 
 # extract lag coefficients
@@ -1227,11 +1269,7 @@ lagCoef <- function(x, conf=0.95, cumulative=FALSE, max.lag=NULL, max.quantile=0
   gpar <- x$par
   offs <- x$offset
   p <- ncol(gpar)
-  if(x$add.intercept) {
-    n_alpha <- ifelse(is.null(x$variables$unit),1,length(x$unit.id))
-    } else {
-    n_alpha <- 0
-    }
+  n_alpha <- nInterc(x)
   Smat <- vcov(x)
   res <- vector("list",length=p)
   names(res) <- x$variables$x.names
@@ -1347,12 +1385,12 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
     if(add.legend) {
       bcum <- x$coef[i+n_alpha]
       if(is.null(conf)) {
-        legtxt <- paste("Coeff. after ",auxlen," lags: ",round(signif(bcum),digits))
+        legtxt <- paste("Multiplier up to ",auxlen," lags: ",round(signif(bcum),digits))
         } else {
         bcum_se <- sqrt(Smat[i+n_alpha,i+n_alpha])
         bcumco <- c(bcum,bcum-tquan*bcum_se,bcum+tquan*bcum_se)
         bcumcoOK <- signif(bcumco)
-        legtxt <- paste("Coeff. after ",auxlen," lags: ",round(bcumcoOK[1],digits),"\n",
+        legtxt <- paste("Multiplier up to ",auxlen," lags: ",round(bcumcoOK[1],digits),"\n",
           "   ",100*conf,"% CI: (",round(bcumcoOK[2],digits),", ",round(bcumcoOK[3],digits),")",sep="")
         }
       legend("topright",legend=legtxt,cex=cex.legend,bty="n")
@@ -1368,14 +1406,10 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
     } else {
     xOK <- xnam
     }
-  if(is.null(ylab)) ylab <- "Coefficient"
+  if(is.null(ylab)) ylab <- "Multiplier"
   if(is.null(xlab)) xlab <- "Time lag"
   Smat <- vcov(x)
-  if(x$add.intercept) {
-    n_alpha <- ifelse(is.null(x$variables$unit),1,length(x$unit.id))
-    } else {
-    n_alpha <- 0
-    }
+  n_alpha <- nInterc(x)
   if(is.null(main)) main <- xOK
   #if(!is.null(conf)) tquan <- qt((1+conf)/2,x$df.residual)
   if(!is.null(conf)) tquan <- qnorm((1+conf)/2)
@@ -1392,10 +1426,10 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
 # fitted method for class 'gammadlm'
 fitted.gammadlm <- function(object, ...) {
   if(is.null(object$variables$unit)) {
-    tab <- data.frame(object$data[,object$variables$time], object$fitted.values)
+    tab <- data.frame(object$data.used[,object$variables$time], object$fitted.values)
     colnames(tab) <- c(object$variables$time, object$variables$y.name)
     } else {
-    tab <- data.frame(object$data[,c(object$variables$unit,object$variables$time)], object$fitted.values)
+    tab <- data.frame(object$data.used[,c(object$variables$unit,object$variables$time)], object$fitted.values)
     colnames(tab) <- c(object$variables$unit, object$variables$time, object$variables$y.name)
     }
   tab
@@ -1404,25 +1438,22 @@ fitted.gammadlm <- function(object, ...) {
 # residuals method for class 'gammadlm'
 residuals.gammadlm <- function(object, ...) {
   if(is.null(object$variables$unit)) {
-    tab <- data.frame(object$data[,object$variables$time], object$residuals)
+    tab <- data.frame(object$data.used[,object$variables$time], object$residuals)
     colnames(tab) <- c(object$variables$time, object$variables$y.name)
     } else {
-    tab <- data.frame(object$data[,c(object$variables$unit,object$variables$time)], object$residuals)
+    tab <- data.frame(object$data.used[,c(object$variables$unit,object$variables$time)], object$residuals)
     colnames(tab) <- c(object$variables$unit, object$variables$time, object$variables$y.name)
     }
   tab
   }
-
-
-############################################################
-
 
 # generate lags (auxiliary)
 LAG <- function(x, p, unit=NULL, ...) {
   if(p>0) {
     #
     lfun <- function(v) {
-      v0 <- rep(0,p)
+      #v0 <- rep(0,p)
+      v0 <- rep(mean(v[1:p],na.rm=T),p)  ## <--
       n <- length(v)
       res <- matrix(nrow=n,ncol=p)
       for(i in 1:p) {
@@ -1448,71 +1479,59 @@ LAG <- function(x, p, unit=NULL, ...) {
     }
   }
 
-# fit a single regression (auxiliary)
-regFit <- function(y.name, x.names, lags, data, unit) {
-  nomi <- c(y.name,x.names)
-  names(lags) <- nomi
-  if(is.null(unit)) {
-    xstr <- c()
-    for(i in 1:length(nomi)) {
-      if(lags[i]>=1) {
-        xstr <- c(xstr, paste("LAG(",nomi[i],",",lags[i],")", sep=""))
-        }
-      }
-    if(length(xstr)>0) {
-      form <- formula(paste(y.name,"~",paste(xstr, collapse="+"), sep=""))
-      } else {
-      form <- formula(paste(y.name,"~1", sep=""))
-      }
+# function for EM imputation
+tsEM <- function(var.names, unit=NULL, time=NULL, data, tol=1e-4, maxit=1000, quiet=FALSE) {
+  #
+  if(missing(data)) stop("Argument 'data' is missing")
+  if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
+  if(missing(var.names)) stop("Argument 'var.names' is missing")
+  if(!is.character(var.names)) {
+    stop("Argument 'var.names' must be a character vector")
     } else {
-    xstr <- c()
-    for(i in 1:length(nomi)) {
-      if(lags[i]>=1) {
-        xstr <- c(xstr, paste("LAG(",nomi[i],",",lags[i],",",unit,")", sep=""))
-        }
-      }
-    if(length(xstr)>0) {
-      form <- formula(paste(y.name,"~-1+factor(",unit,")+",paste(xstr, collapse="+"), sep=""))
+    var.names[which(!is.na(var.names))]
+    if(length(var.names)<1) stop("Argument 'var.names' must be a character vector of length 1 or greater")
+    }
+  auxchk <- setdiff(var.names,colnames(data))  
+  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+  #
+  unit <- unit[1]
+  if(!is.null(unit)&&is.na(unit)) unit <- NULL
+  if(!is.null(unit)) {
+    if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
+    if(length(intersect(unit,var.names))>0) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
+    if(sum(is.na(data[,unit]))>0) stop("Variable '",unit,"' provided to argument 'unit' contains missing values")
+    data[,unit] <- factor(data[,unit])
+    }
+  #
+  time <- time[1]
+  if(!is.null(time)&&is.na(time)) time <- NULL
+  if(!is.null(time)) {
+    if(length(setdiff(time,colnames(data)))>0) stop("Unknown variable '",time,"' provided to argument 'time'")
+    if(length(intersect(time,var.names))>0) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
+    if(length(intersect(time,unit))>0) stop("Variable '",time,"' appears in both arguments 'unit' and 'time'")
+    if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
+    if(sum(is.na(data[,time]))>0) stop("Variable '",time,"' provided to argument 'time' contains missing values")
+    if(is.null(unit)) {
+      if(sum(duplicated(data[,time]))>0) stop("Variable '",time,"' contains duplicated values")
       } else {
-      form <- formula(paste(y.name,"~-1+factor(",unit,")", sep=""))
+      if(sum(sapply(split(data,data[,unit]),function(x){sum(duplicated(x[,time]))}))>0) stop("Variable '",time,"' contains duplicated values")
       }
     }
-  mod <- lm(form, data=data)
-  mod$call$formula <- form
-  mod
-  }
-
-# fit a VAR model (auxiliary)
-fitVAR <- function(x.names, unit, data, nlags) {
-  mod <- list()
-  for(i in 1:length(x.names)) {
-    iy <- x.names[i]
-    ix <- setdiff(x.names, iy)
-    mod[[i]] <- regFit(y.name=iy, x.names=ix, lags=rep(nlags,length(x.names)), data=data, unit=unit)
+  #
+  quiet <- quiet[1]
+  if(is.na(quiet)||(!is.logical(quiet)|is.null(quiet))) quiet <- FALSE
+  if(!is.numeric(tol)|is.null(tol)) tol <- 1e-4
+  if(tol<=0) tol <- 1e-4
+  if(!is.numeric(maxit)|is.null(maxit)) maxit <- 1000
+  if(maxit<=0) maxit <- 1000 else maxit <- ceiling(maxit)
+  #
+  if(!is.null(time)) {
+    if(is.null(unit)) {
+      data <- data[order(data[,time]),]
+      } else {
+      data <- data[order(data[,unit],data[,time]),]
+      }
     }
-  names(mod) <- x.names
-  mod
-  }
-
-# get fitted values of a VAR model (auxiliary)
-getFitted <- function(object, ...) {
-  ff <- lapply(object, fitted.values)
-  nomiObs <- rownames(object$data)
-  res <- data.frame(matrix(nrow=length(nomiObs), ncol=length(ff)))
-  rownames(res) <- nomiObs
-  colnames(res) <- names(ff)
-  for(i in 1:length(ff)) {
-    res[names(ff[[i]]),i] <- ff[[i]]
-    }
-  if(!is.null(object$unit)) {
-    res <- cbind(object$data[,object$unit],res)
-    colnames(res)[1] <- object$unit
-    }
-  res
-  }
-
-# function for EM imputation (auxiliary)
-EMimput <- function(x.names, unit=NULL, time=NULL, data, nlags=NULL, maxit=1000, tol=1e-4, quiet=FALSE) {
   if(!is.null(unit)) {
     data[,unit] <- factor(data[,unit])
     if(nlevels(data[,unit])<=1) unit <- NULL
@@ -1522,26 +1541,46 @@ EMimput <- function(x.names, unit=NULL, time=NULL, data, nlags=NULL, maxit=1000,
     } else {
     n <- min(sapply(split(data, data[,unit]), nrow))
     }
-  if(is.null(nlags)) {
-    nlags <- trunc(min((n-1)^(1/3), 0.75*n/length(x.names)))
-    } else {
-    nlags <- trunc(min(nlags, 0.75*n/length(x.names)))
-    }
+  nlags <- floor(min(sqrt(n), 0.5*nrow(data)/length(var.names)))
+  if(quiet==F) cat("Selected ",nlags," lag orders","\n",sep="")
   dataI <- data
-  isNA <- list()
-  for(i in 1:length(x.names)) {
-    isNA[[i]] <- which(is.na(data[,x.names[i]]))
-    dataI[isNA[[i]],x.names[i]] <- mean(data[,x.names[i]],na.rm=T) 
+  lambda <- c()
+  for(i in 1:length(var.names)) {
+    if(sum(data[,var.names[i]]<=0,na.rm=T)==0) {
+      lambda[i] <- 0
+      dataI[,var.names[i]] <- log(data[,var.names[i]]) 
+      } else if(sum(data[,var.names[i]]<0,na.rm=T)==0) {
+      lambda[i] <- 0.5
+      dataI[,var.names[i]] <- sqrt(data[,var.names[i]]) 
+      } else {
+      lambda[i] <- 1  
+      }
     }
-  names(isNA) <- x.names
+  names(lambda) <- var.names
+  isNA <- list()
+  for(i in 1:length(var.names)) {
+    isNA[[i]] <- which(is.na(dataI[,var.names[i]]))
+    dataI[isNA[[i]],var.names[i]] <- mean(dataI[,var.names[i]],na.rm=T) 
+    }
+  names(isNA) <- var.names
   ll <- -Inf
+  if(is.null(unit)) fstr <- "" else fstr <- paste0(unit,"+")
   fine <- ind <- 0
   if(quiet==F) cat("EM iteration 0. Log likelihood: -")
   flush.console()
   while(fine==0) {
     ind <- ind+1
-    m0 <- fitVAR(x.names=x.names, unit=unit, data=dataI, nlags=nlags)
-    ll0 <- sum(sapply(m0,function(x){logLik(x)[1]}))
+    data_new <- dataI
+    ll0 <- 0
+    for(i in 1:length(var.names)) {
+      iform <- paste0(var.names[i],"~",fstr,paste(paste0("LAG(",var.names,",",nlags,",",unit,")"),collapse="+"))
+      imod <- lm(formula(iform),data=dataI)
+      ll0 <- ll0+logLik(imod)[1]
+      aux <- isNA[[var.names[i]]]
+      if(length(aux)>0) {
+        suppressWarnings(data_new[aux,var.names[i]] <- predict(imod)[aux])
+        }
+      }
     if(ll0>=ll) {
       if((ll0-ll)<tol | ind>=maxit) fine <- 1
       if(quiet==F) {
@@ -1549,12 +1588,9 @@ EMimput <- function(x.names, unit=NULL, time=NULL, data, nlags=NULL, maxit=1000,
         flush.console()
         }
       ll <- ll0
-      f0 <- getFitted(m0)
-      for(i in 1:length(x.names)) {
-        dataI[isNA[[x.names[i]]],x.names[i]] <- f0[isNA[[x.names[i]]],x.names[i]] 
-        }
-      modOK <- m0
+      dataI <- data_new
       } else {
+      #warning("Likelihood has decreased")
       ind <- ind-1
       fine <- 1  
       }
@@ -1562,16 +1598,18 @@ EMimput <- function(x.names, unit=NULL, time=NULL, data, nlags=NULL, maxit=1000,
   if(quiet==F) {
     cat("\n")
     if(ind<maxit) {
-      cat("EM converged after ",ind," iterations",sep="")
+      cat("Converged after ",ind," iterations",sep="")
       } else {
-      cat("EM reached the maximum number of iterations")
+      cat("Reached the maximum number of iterations")
       }
     cat("\n")
     }
-  ll <- sum(sapply(modOK, function(x){logLik(x)[1]}))
-  p <- sum(sapply(modOK, function(x){attr(logLik(x),"df")}))
-  n <- nrow(data)
-  ic <- c(aic=-2*ll+2*p, aicc=-2*ll+2*p*(1+(p+1)/(n-p-1)),
-          bic=-2*ll+p*log(n), hqic=-2*ll+2*p*log(log(n)))
-  list(models=modOK,data=data,data.imputed=dataI,unit=unit,time=time,nlags=nlags,logLik=ll,ic=ic)
+  for(i in 1:length(var.names)) {
+    if(lambda[var.names[i]]==0) {
+      dataI[,var.names[i]] <- exp(dataI[,var.names[i]])
+      } else if(lambda[var.names[i]]==0.5) {
+      dataI[,var.names[i]] <- dataI[,var.names[i]]^2 
+      }
+    }
+  dataI
   }
