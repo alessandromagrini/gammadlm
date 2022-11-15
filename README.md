@@ -88,6 +88,6 @@ z_name <- c("Land","Output_total")
 
 # model on data in differences: in this case, the intercept represents the coefficient of a linear trend (drift)
 m_fadn <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
-  unit="Country", time="Year", data=fadn, box.cox=1, ndiff=1, multi.intercept=FALSE,
+  unit="Country", time="Year", data=fadn, box.cox=1, ndiff=1,
   control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
 summary(m_fadn)
