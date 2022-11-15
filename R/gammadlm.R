@@ -1,7 +1,8 @@
 ### DA FARE
 #
+# - gestione automatica dei missing
+# - tsEM(): automated lag order
 # - diagnostiche grafiche
-# - tsEM(): selezione automatica del lag order
 
 # - metodo predict (inversione differenze e box.cox)
 # - quandt test
@@ -589,7 +590,7 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
   mod$par <- par
   mod$offset <- offset
   mod$add.intercept <- add.intercept
-  mod$multi.intercept <- multi.intercept
+  #mod$multi.intercept <- multi.intercept
   class(mod) <- c("gammadlm","lm")
   mod
   }
@@ -762,7 +763,7 @@ optFormat <- function(optList, nomi, val) {
 
 # MASTER FUNCTION
 gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)),
-  box.cox=1, ndiff=0, add.intercept=TRUE, multi.intercept=TRUE,
+  box.cox=1, ndiff=0, add.intercept=TRUE, #multi.intercept=TRUE,
   control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
   #
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
@@ -847,6 +848,10 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
   #
   #data <- data[complete.cases(data[,c(unit,time,y.name,x.names,z.names)]),]
   dataD <- preProcess(var.names=c(y.name,x.names,z.names), unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)  ## <--
+  #
+  add.intercept <- add.intercept[1]
+  if(is.na(add.intercept)||(!is.logical(add.intercept)|is.null(add.intercept))) add.intercept <- T
+  multi.intercept <- ifelse(add.intercept & attr(dataD,"ndiff")[y.name]>0, F, T)
   #
   quiet <- quiet[1]
   if(is.na(quiet)||(!is.logical(quiet)|is.null(quiet))) quiet <- FALSE
@@ -1046,7 +1051,8 @@ nInterc <- function(object) {
     if(is.null(object$variables$unit)) {
       1
       } else {
-      ifelse(object$multi.intercept,length(object$unit.id),1)
+      #ifelse(multi.intercept, length(object$unit.id), 1)
+      ifelse(object$ndiff[object$variables$y.name]==0, length(object$unit.id), 1)
       }
     } else {
     0
@@ -1078,13 +1084,13 @@ summary.gammadlm <- function(object, ...) {
   n_alpha <- nInterc(object)
   if(n_alpha>0) alphaTab <- ttab[1:n_alpha,,drop=F] else alphaTab <- NULL
   nomi <- object$variables$x.names
-  quan <- matrix(nrow=ncol(object$par),ncol=4)
+  quan <- matrix(nrow=ncol(object$par),ncol=5)
   for(i in 1:ncol(object$par)) {
     quan[i,] <- c(peakCalc(object$par[,i])+object$offset[i],
-                  gammaQuantile(c(.5,.95,.99),object$par[,i],object$offset[i]))
+                  gammaQuantile(c(.5,.95,.99,.999),object$par[,i],object$offset[i]))
     }
   rownames(quan) <- colnames(object$par)
-  colnames(quan) <- c("peak","50%","95%","99%")
+  colnames(quan) <- c("peak","50%","95%","99%","99.9%")
   par <- cbind(t(object$par),offset=object$offset,round(quan,1))
   xTab <- ttab[(n_alpha+1):(n_alpha+length(nomi)),]
   rownames(xTab) <- nomi

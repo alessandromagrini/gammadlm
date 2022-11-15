@@ -4,8 +4,8 @@
 \description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. Data may have a panel structure, even unbalanced.}
 \usage{gammadlm(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
   offset=rep(0,length(x.names)), box.cox=1, ndiff=0, add.intercept=TRUE,
-  multi.intercept=TRUE, control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL,
-  peak.lim=NULL, length.lim=NULL), quiet=FALSE)}
+  control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL,
+  length.lim=NULL), quiet=FALSE)}
 \arguments{
   \item{y.name}{Character including the name of the response variable, that must be a quantitative variable. If a vector with length greater than 1 is provided, only the first element is considered.}  
   \item{x.names}{Character vector of length 1 or greater including the names of the explanatory variables with lags, that must be quantitative variables. If the name of the response variable is indicated in \code{x.names}, then the autoregressive lag distribution will be estimated.}
@@ -17,7 +17,6 @@
   \item{box.cox}{Named vector with non-negative real values indicating the parameters of the Box-Cox transformation (Box & Cox, 1964) for variables in \code{x.names}. If \code{box.cox} has no names and length greater than one, the same ordering as in \code{x.names} is assumed. If \code{box.cox} has no names and length equal to one, the same parameter is used for all variables in \code{x.names}. Value 0 of the parameter equates to the logarithmic transformation, while value 1 means no transformation. Default is 1 for all variables in \code{x.names}.}
   \item{ndiff}{Named vector with non-negative integer values indicating the number of differences for variables in \code{x.names}. If \code{ndiff} has no names and length greater than one, the same ordering as in \code{x.names} is assumed. If \code{ndiff} has no names and length equal to one, the same number of differences is used for all variables in \code{x.names}. Value 0 means no differencing. Default is 0 for all variables in \code{x.names}.}
   \item{add.intercept}{Logical value indicating whether the intercept should be included in the model. Default is \code{TRUE}. See 'Details'.}
-  \item{multi.intercept}{Logical value indicating whether unit-specific intercepts should be included in the model, rather than a unique intercept for all units. Ignored if \code{unit} is \code{NULL}. Default is \code{TRUE}. See 'Details'.}
   \item{control}{A list including control options for the hill climbing algorithm.
    \itemize{
     \item{\code{nstart}: }{positive integer value indicating the number of restarts. If equal to 1 or \code{NULL} (the default), shape parameters are initialized for one explanatory variable at a time based on OLS-grid search.}
@@ -36,7 +35,6 @@
   \item{\code{par}: }{matrix including the shape parameters for each variable in \code{x.names} (by column);}
   \item{\code{offset}: }{vector including the offset of the lag distributions;}
   \item{\code{add.intercept}: }{value passed to argument \code{add.intercept};}
-  \item{\code{multi.intercept}: }{value passed to argument \code{multi.intercept};}
   \item{\code{local.max}: }{list including the best model for each restart.}
   \item{\code{variables}: }{list including the names of the variables provided to arguments \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time}.}
   \item{\code{control}: }{list including control options used in parameter estimation;}
@@ -53,19 +51,19 @@
 Second-order stationarity of all time series (expected value and autocorrelation function independent of time) is a basic assumption of the model, that is guaranteed if no time series contains unit roots.
 Box-Cox transformation (argument \code{box.cox}) and/or differencing (argument \code{ndiff}) can be exploited in order to achieve second-order stationarity of each time series.
 
-If the response variable is not differenced (\code{ndiff}=0), the intercept captures the effect of time-invariant factors. Otherwise, if \code{ndiff}>0, time-invariant factors are canceled out and the intercept represents the coefficient of a linear trend (drift). To avoid the drift, argument \code{add.intercept} must be set to \code{FALSE} when \code{ndiff}>0 for the response variable. In case of panel data, i.e., \code{unit} is not \code{NULL}, it is possible to include a unique intercept for all units by setting argument \code{multi.intercept} to \code{FALSE}. Otherwise, unit-specific intercepts are included.
+If the response variable is not differenced, the intercept captures the effect of time-invariant factors. Otherwise, time-invariant factors are canceled out and the intercept represents the coefficient of a linear trend (drift). When \code{unit} is not \code{NULL} (panel data), unit-specific intercepts are included if the response variable is not differenced, otherwise a unique intercept (drift) for all units is included. 
 
-All S3 methods for class \code{lm} are also available for class \code{gammadlm}. Notably:
+All S3 methods for class \code{lm} are also available for class \code{gammadlm}:
 
-- \code{plot} displays the estimated lag distributions;
+- \code{plot}: to display the estimated lag distributions;
 
-- \code{summary} provides a summary of parameter estimation;
+- \code{summary}: to see the summary of parameter estimation;
 
-- \code{residuals} returns the residuals;
+- \code{residuals}: to get the residuals;
 
-- \code{fitted.values} returns the fitted values;
+- \code{fitted.values}: to get the fitted values;
 
-- \code{predict} computes predicted values.
+- \code{predict}: to obtain predictions.
 %performs \eqn{h} step ahead forecast.
 
 Furthermore, method \link{lagCoef} can be used to see the estimated dynamic multipliers.
@@ -92,16 +90,15 @@ A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation o
 
 W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }
-\seealso{\link{unirootTest}; \link{lagCoef}; \link{plot.gammadlm}.
+\seealso{\link{unirootTest}; \link{tsEM}; \link{lagCoef}; \link{plot.gammadlm}.
 }
 \examples{
 # load data on Bitcoin and US stock market price
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]
 
-# estimation with pre-specified shape parameters (simple OLS)
+# model with pre-specified shape parameters (simple OLS)
 #   on data in logarithmic differences (yearly relative changes)
-#   to achieve stationarity
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)
 m0 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), time="Date", data=mydata,
@@ -150,11 +147,10 @@ y_name <- "TFP"
 x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
 z_name <- c("Land","Output_total")
 
-# model on data in differences to achieve stationarity
-#  (since data are differenced, the intercept represent
-#   the coefficient of a linear trend)
+# model on data in differences: in this case, the intercept
+#   represents the coefficient of a linear trend (drift)
 m_fadn <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
-  unit="Country", time="Year", data=fadn, box.cox=1, ndiff=1, multi.intercept=FALSE,
+  unit="Country", time="Year", data=fadn, box.cox=1, ndiff=1,
   control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
 summary(m_fadn)}
 }
