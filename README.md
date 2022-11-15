@@ -30,15 +30,16 @@ Load data on Bitcoin and US stock market price
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]  ## select data from April 2020 onwards
 ```
-Model with pre-specified shape parameters (simple OLS) on data in logarithmic differences (yearly relative changes):
+MEstimation with pre-specified shape parameters (simple OLS):
 ```
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)
+# data are taken in logarithmic differences (yearly relative changes): box.cox=0, ndiff=1
 m0 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), time="Date", data=mydata,
   box.cox=0, ndiff=1, control=list(delta.lim=dval, lambda.lim=lval))
 summary(m0)  ## summary of estimation
 ```
-Model with unknown delta and lambda parameters (hill climbing algorithm):
+Estimation with unknown delta and lambda parameters (hill climbing algorithm):
 ```
 # no random restarts (default: initialization is based on independent OLS-grid searches)
 m1 <- gammadlm(y.name="BTC", x.names=c("DJA","IXIC","GSPC"), data=mydata, box.cox=0, ndiff=1)
@@ -86,7 +87,8 @@ y_name <- "TFP"
 x_name <- c("Subs_prod","Subs_inv","Subs_rur","Subs_dec")
 z_name <- c("Land","Output_total")
 
-# model on data in differences: in this case, the intercept represents the coefficient of a linear trend (drift)
+# estimation with unknown delta and lambda parameters (hill climbing algorithm)
+#   data are taken in differences: in this case, the intercept represents the coefficient of a linear trend (drift)
 m_fadn <- gammadlm(y.name=y_name, x.names=x_name, z.names=z_name,
   unit="Country", time="Year", data=fadn, box.cox=1, ndiff=1,
   control=list(peak.lim=c(1,Inf), length.lim=c(3,10)))
