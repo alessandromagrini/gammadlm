@@ -30,7 +30,7 @@ Load data on Bitcoin and US stock market price
 data(btc)
 mydata <- btc[which(btc$Date>="2020-04-01"),]  ## select data from April 2020 onwards
 ```
-MEstimation with pre-specified shape parameters (simple OLS):
+Estimation with pre-specified shape parameters (simple OLS):
 ```
 dval <- list(DJA=0.85,IXIC=0.75,GSPC=0.55)
 lval <- list(DJA=0.05, IXIC=0.35,GSPC=0.45)
