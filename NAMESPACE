@@ -11,6 +11,6 @@ S3method(print, summary.gammadlm)
 importFrom("grDevices", "adjustcolor", "n2mfrow")
 importFrom("graphics", "abline", "box", "grid", "legend", "lines", "par", "polygon")
 importFrom("stats", "approx", "embed", "formula", "lm", "vcov", "BIC", "nobs", "predict",
-           "model.matrix", "na.omit", "pf", "pt", "var", "qnorm", "pnorm",
+           "model.matrix", "na.omit", "pf", "pt", "var", "qnorm", "pnorm", "cor", "quantile",
            "residuals.lm", "fitted.values", "logLik", "spline", "summary.lm")
 importFrom("utils", "flush.console")

@@ -1,9 +1,6 @@
 ### DA FARE
 #
-# - gestione automatica dei missing
-# - tsEM(): automated lag order
 # - diagnostiche grafiche
-
 # - metodo predict (inversione differenze e box.cox)
 # - quandt test
 # - draw sample
@@ -762,8 +759,8 @@ optFormat <- function(optList, nomi, val) {
   }
 
 # MASTER FUNCTION
-gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, offset=rep(0,length(x.names)),
-  box.cox=1, ndiff=0, add.intercept=TRUE, #multi.intercept=TRUE,
+gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
+  offset=rep(0,length(x.names)), box.cox=1, ndiff=0, add.intercept=TRUE,
   control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
   #
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
@@ -803,6 +800,8 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       }
     }
   #
+  if(sum(is.na(data[,c(y.name,x.names,z.names)]))>0) stop("Data contain missing values: you can use tsEM() to impute them")
+  #
   if(!is.null(unit)) {
     unit <- unit[which(!is.na(unit))]
     if(!is.character(unit)|length(unit)!=1) stop("Argument 'unit' must be either NULL or a character vector of length 1")
@@ -814,7 +813,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data, 
       if(sum(is.na(data[,unit]))>0) stop("Variable '",unit,"' provided to argument 'unit' contains missing values")
       data[,unit] <- factor(data[,unit])
       } else {
-      unit <- NULL  
+      unit <- NULL
       }
     }
   #
@@ -1482,11 +1481,36 @@ LAG <- function(x, p, unit=NULL, ...) {
       colnames(res) <- 1:p
       res
       }
+    } else {
+    x  
     }
   }
 
+# find cross-correlation order (auxiliary)
+crossCorOrder <- function(var.names, unit=NULL, data, maxlag) {
+  corMat <- array(dim=c(length(var.names),length(var.names),maxlag+1))
+  dimnames(corMat) <- list(var.names,var.names,0:maxlag)
+  if(is.null(unit)) {
+    res <- data[,var.names,drop=F]
+    uvar <- NULL
+    } else {
+    datlist <- split(data[,var.names,drop=F],data[,unit])
+    res <- do.call(rbind,lapply(datlist,function(x){apply(x,2,function(z){z-mean(z,na.rm=T)})}))
+    uvar <- data[,unit]
+    }
+  for(i in 1:length(var.names)) {
+    for(j in i:length(var.names)) {
+      y <- res[,i]
+      x <- res[,j]
+      lx <- cbind(x,LAG(x,maxlag,uvar))
+      corMat[i,j,] <- cor(y,lx,use="pairwise.complete.obs")[1,]
+      }
+    }
+  corMat
+  }
+
 # function for EM imputation
-tsEM <- function(var.names, unit=NULL, time=NULL, data, tol=1e-4, maxit=1000, quiet=FALSE) {
+tsEM <- function(var.names, unit=NULL, time=NULL, data, nlags=NULL, tol=1e-4, maxit=1000, quiet=FALSE) {
   #
   if(missing(data)) stop("Argument 'data' is missing")
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
@@ -1499,6 +1523,16 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, tol=1e-4, maxit=1000, qu
     }
   auxchk <- setdiff(var.names,colnames(data))  
   if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+  xnum <- xcat <- c()
+  for(i in 1:length(var.names)) {
+    idat <- data[,var.names[i]]
+    if(is.numeric(idat)&!identical(sort(unique(na.omit(idat))),c(0,1))) {
+      xnum <- c(xnum,var.names[i])
+      } else {
+      if(sum(is.na(idat))>0) stop("Variable '",var.names[i],"' is categorical and contains missing values")
+      xcat <- c(xcat,var.names[i])
+      }
+    }
   #
   unit <- unit[1]
   if(!is.null(unit)&&is.na(unit)) unit <- NULL
@@ -1547,30 +1581,53 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, tol=1e-4, maxit=1000, qu
     } else {
     n <- min(sapply(split(data, data[,unit]), nrow))
     }
-  nlags <- floor(min(sqrt(n), 0.5*nrow(data)/length(var.names)))
-  if(quiet==F) cat("Selected ",nlags," lag orders","\n",sep="")
   dataI <- data
   lambda <- c()
-  for(i in 1:length(var.names)) {
-    if(sum(data[,var.names[i]]<=0,na.rm=T)==0) {
+  for(i in 1:length(xnum)) {
+    if(sum(data[,xnum[i]]<=0,na.rm=T)==0) {
       lambda[i] <- 0
-      dataI[,var.names[i]] <- log(data[,var.names[i]]) 
-      } else if(sum(data[,var.names[i]]<0,na.rm=T)==0) {
+      dataI[,xnum[i]] <- log(data[,xnum[i]]) 
+      } else if(sum(data[,xnum[i]]<0,na.rm=T)==0) {
       lambda[i] <- 0.5
-      dataI[,var.names[i]] <- sqrt(data[,var.names[i]]) 
+      dataI[,xnum[i]] <- sqrt(data[,xnum[i]]) 
       } else {
       lambda[i] <- 1  
       }
     }
-  names(lambda) <- var.names
+  names(lambda) <- xnum
   isNA <- list()
-  for(i in 1:length(var.names)) {
-    isNA[[i]] <- which(is.na(dataI[,var.names[i]]))
-    dataI[isNA[[i]],var.names[i]] <- mean(dataI[,var.names[i]],na.rm=T) 
+  for(i in 1:length(xnum)) {
+    isNA[[i]] <- which(is.na(dataI[,xnum[i]]))
+    dataI[isNA[[i]],xnum[i]] <- mean(dataI[,xnum[i]],na.rm=T) 
     }
-  names(isNA) <- var.names
+  names(isNA) <- xnum
+  #
+  nlags <- nlags[1]
+  if(!is.null(nlags)&&is.na(nlags)) nlags <- NULL
+  if(is.null(nlags)) {
+    cmat <- crossCorOrder(xnum, unit=unit, data=data, maxlag=sqrt(n))
+    cut <- qnorm(0.975)/sqrt(n)
+    k0 <- quantile(which(abs(cmat)>cut,arr.ind=T)[,3],prob=0.9)-1
+    if(!is.numeric(k0)) k0 <- sqrt(n)
+    } else {
+    k0 <- max(0,nlags)
+    }
+  nlags <- round(min(k0, 0.5*(nrow(data)-1-length(xcat))/length(xnum)))
+  if(quiet==F) cat("Selected ",nlags," lag orders","\n",sep="")
+  #
   ll <- -Inf
-  if(is.null(unit)) fstr <- "" else fstr <- paste0(unit,"+")
+  if(is.null(unit)) {
+    fstr <- ""
+    ustr <- ""
+    } else {
+    fstr <- paste0(unit,"+")
+    ustr <- paste0(",",unit)
+    }
+  if(length(xcat)>0) {
+    zstr <- paste0("+",paste(xcat,collapse="+"))
+    } else {
+    zstr <- ""  
+    }
   fine <- ind <- 0
   if(quiet==F) cat("EM iteration 0. Log likelihood: -")
   flush.console()
@@ -1578,13 +1635,29 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, tol=1e-4, maxit=1000, qu
     ind <- ind+1
     data_new <- dataI
     ll0 <- 0
-    for(i in 1:length(var.names)) {
-      iform <- paste0(var.names[i],"~",fstr,paste(paste0("LAG(",var.names,",",nlags,",",unit,")"),collapse="+"))
-      imod <- lm(formula(iform),data=dataI)
-      ll0 <- ll0+logLik(imod)[1]
-      aux <- isNA[[var.names[i]]]
+    for(i in 1:length(xnum)) {
+      if(nlags==0) {
+        if(length(xnum)==1) {
+          x0str <- 1
+          } else {
+          x0str <- paste0("LAG(",xnum[-i],",",nlags,ustr,")")
+          }
+        iform <- formula(paste0(xnum[i],"~",fstr,paste(x0str,collapse="+"),zstr))
+        } else {
+        iform <- formula(paste0(xnum[i],"~",fstr,paste(paste0("LAG(",xnum,",",nlags,ustr,")"),collapse="+"),zstr))
+        }
+      imod <- lm(iform,data=dataI)
+      imod_rev <- lm(iform,data=dataI[nrow(dataI):1,,drop=F])
+      #
+      #ll0 <- ll0+logLik(imod)[1]
+      ll0 <- ll0+(logLik(imod)[1]+logLik(imod_rev)[1])/2
+      #
+      aux <- isNA[[xnum[i]]]
       if(length(aux)>0) {
-        suppressWarnings(data_new[aux,var.names[i]] <- predict(imod)[aux])
+        suppressWarnings(
+          #data_new[aux,xnum[i]] <- predict(imod)[aux]
+          data_new[aux,xnum[i]] <- (predict(imod)[aux]+rev(predict(imod_rev))[aux])/2
+          )
         }
       }
     if(ll0>=ll) {
@@ -1606,15 +1679,15 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, tol=1e-4, maxit=1000, qu
     if(ind<maxit) {
       cat("Converged after ",ind," iterations",sep="")
       } else {
-      cat("Reached the maximum number of iterations")
+      cat("Convergence not achieved. Try to increase 'maxit' or decrease 'tol'")
       }
     cat("\n")
     }
-  for(i in 1:length(var.names)) {
-    if(lambda[var.names[i]]==0) {
-      dataI[,var.names[i]] <- exp(dataI[,var.names[i]])
-      } else if(lambda[var.names[i]]==0.5) {
-      dataI[,var.names[i]] <- dataI[,var.names[i]]^2 
+  for(i in 1:length(xnum)) {
+    if(lambda[xnum[i]]==0) {
+      dataI[,xnum[i]] <- exp(dataI[,xnum[i]])
+      } else if(lambda[xnum[i]]==0.5) {
+      dataI[,xnum[i]] <- dataI[,xnum[i]]^2 
       }
     }
   dataI

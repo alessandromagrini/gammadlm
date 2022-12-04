@@ -8,7 +8,7 @@
   Package: \tab gammadlm\cr
   Type: \tab Package\cr
   Version: \tab 0.1.1\cr
-  Date: \tab 2022-11-15\cr
+  Date: \tab 2022-12-04\cr
   License: \tab GPL-2
   }
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.
@@ -37,8 +37,8 @@ where:
 }
 The main functions of the package are:
 \itemize{
+  \item{\link{tsEM}, }{to impute missing values based on the Expectation-Maximization algorithm;}
   \item{\link{unirootTest}, }{to assess stationarity;}
-  %\item{\link{preProcess}, }{to apply the Box-Cox transformation and differencing in order to achieve stationarity;}
   \item{\link{gammadlm}, }{to estimate the model through the hill climbing algorithm;}
   \item{\link{lagCoef}, }{to see the estimated dynamic multipliers;}
   \item{\link{plot.gammadlm}, }{to display the estimated lag distributions.}
