@@ -1,6 +1,6 @@
 ### DA FARE
 #
-# - differenze automatiche
+# - differencing automatico
 # - diagnostiche grafiche
 # - metodo predict (inversione differenze e box.cox)
 # - quandt test
@@ -70,15 +70,13 @@ oneTest <- function(x, unit=NULL, max.lag=NULL) {
     unit <- unit[isOK]
     n <- min(nvet)
     }
+  max.lag <- max.lag[1]
+  if(!is.null(max.lag)&&is.na(max.lag)) max.lag <- NULL
+  if(!is.null(max.lag)&&!is.numeric(max.lag)) max.lag <- NULL
   if(is.null(max.lag)) {
-    max.lag <- floor(sqrt(n))
+    max.lag <- round(sqrt(n))
     } else {
-    if(length(max.lag)>1) max.lag <- max.lag[1]
-    if(!is.numeric(max.lag) || max.lag!=round(max.lag) || max.lag<0) stop("Argument 'max.lag' must be a non-negative integer value")
-    if(max.lag>n-3) {
-      max.lag <- n-3
-      #warning("Argument 'max.lag' was set to ",n-3)
-      }
+    max.lag <- round(min(max(0,max.lag),sqrt(n)))
     }
   if(is.null(unit)) {
     res <- res1 <- adfFun(x=x, max.lag=max.lag)
@@ -223,16 +221,19 @@ kpssFun <- function(x, max.lag) {
   list(statistic=unname(res[1]), lag.order=k, p.value=unname(res[2]))
   }
 
+# recognize quantitative variable (auxiliary)
+isQuant <- function(x) {
+  is.numeric(x)&!setequal(unique(na.omit(x)),c(0,1))
+  }
+
 # perform unit root test
 unirootTest <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
-  var.names <- var.names[which(!is.na(var.names))]
   dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
   xcat <- c()
   for(i in 1:length(var.names)) {
-    idat <- data[,var.names[i]]
-    if(is.numeric(idat)&!identical(sort(unique(na.omit(idat))),c(0,1))) {
-      } else {
+    if(isQuant(data[,var.names[i]])==F) {
       xcat <- c(xcat,var.names[i])
+      warning("Variable '",var.names[i],"' is not quantitative and has been ignored",call.=F)
       }
     }
   var.names <- setdiff(var.names,xcat)
@@ -293,14 +294,13 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
     if(length(var.names)<1) stop("Argument 'var.names' must be a character vector of length 1 or greater")
     }
   auxchk <- setdiff(var.names,colnames(data))  
-  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+  if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
   xnum <- xcat <- c()
   for(i in 1:length(var.names)) {
-    idat <- data[,var.names[i]]
-    if(is.numeric(idat)&!identical(sort(unique(na.omit(idat))),c(0,1))) {
+    if(isQuant(data[,var.names[i]])) {
       xnum <- c(xnum,var.names[i])
       } else {
-      if(sum(is.na(idat))>0) stop("Variable '",var.names[i],"' is categorical and contains missing values")
+      if(sum(is.na(data[,var.names[i]]))>0) stop("Variable '",var.names[i],"' is categorical and contains missing values")
       xcat <- c(xcat,var.names[i])
       }
     }
@@ -308,7 +308,7 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
   unit <- unit[1]
   if(!is.null(unit)&&is.na(unit)) unit <- NULL
   if(!is.null(unit)) {
-    if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
+    if(length(setdiff(unit,colnames(data)))>0) stop("Variable '",unit,"' not found")
     if(length(intersect(unit,var.names))>0) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
     if(sum(is.na(data[,unit]))>0) stop("Variable '",unit,"' provided to argument 'unit' contains missing values")
     data[,unit] <- factor(data[,unit])
@@ -317,7 +317,7 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
   time <- time[1]
   if(!is.null(time)&&is.na(time)) time <- NULL
   if(!is.null(time)) {
-    if(length(setdiff(time,colnames(data)))>0) stop("Unknown variable '",time,"' provided to argument 'time'")
+    if(length(setdiff(time,colnames(data)))>0) stop("Variable '",time,"' not found")
     if(length(intersect(time,var.names))>0) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
     if(length(intersect(time,unit))>0) stop("Variable '",time,"' appears in both arguments 'unit' and 'time'")
     if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
@@ -801,25 +801,28 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
     if(length(y.name)!=1) stop("Argument 'y.name' must be a character vector of length 1")
     }
   auxchk <- setdiff(y.name,colnames(data))  
-  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'y.name'")
+  if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
   #
   if(missing(x.names)) stop("Argument 'x.names' is missing")
   if(!is.character(x.names)) {
     stop("Argument 'x.names' must be a character vector")
     } else {
-    x.names[which(!is.na(x.names))]
+    x.names <- x.names[which(!is.na(x.names))]
     if(length(x.names)<1) stop("Argument 'x.names' must be a character vector")
+    for(i in 1:length(x.names)) {
+      if(isQuant(data[,x.names[i]])==F) stop("Variable '",x.names[i],"' is not quantitative")
+      }
     }
-  auxchk <- setdiff(x.names,colnames(data))  
-  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'x.names'")
-  if(y.name%in%x.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'x.names'")
+  auxchk <- setdiff(x.names,colnames(data))
+  if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
+  #if(y.name%in%x.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'x.names'")
   #
   if(!is.null(z.names)) {
-    z.names[which(!is.na(z.names))]
+    z.names <- z.names[which(!is.na(z.names))]
     if(!is.character(z.names)|length(z.names)==0) stop("Argument 'z.names' must be either a character vector or NULL")
     if(length(z.names)>0) {
       auxchk2 <- setdiff(z.names,colnames(data))
-      if(length(auxchk2)>0) stop("Unknown variable '",auxchk2[1],"' in argument 'z.names'")
+      if(length(auxchk2)>0) stop("Variable '",auxchk2[1],"' not found")
       if(y.name%in%z.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'z.names'")
       auxchk3 <- intersect(z.names,x.names)
       if(length(auxchk3)>0) stop("Variable '",auxchk3[1],"' appears in both arguments 'x.names' and 'z.names'")
@@ -834,7 +837,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
     unit <- unit[which(!is.na(unit))]
     if(!is.character(unit)|length(unit)!=1) stop("Argument 'unit' must be either NULL or a character vector of length 1")
     if(length(unit)>0) {
-      if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
+      if(length(setdiff(unit,colnames(data)))>0) stop("Variable '",unit,"' not found")
       if(length(intersect(unit,y.name))>0) stop("Variable '",unit,"' appears in both arguments 'y.name' and 'unit'")
       if(length(intersect(unit,x.names))>0) stop("Variable '",unit,"' appears in both arguments 'x.names' and 'unit'")
       if(length(intersect(unit,z.names))>0) stop("Variable '",unit,"' appears in both arguments 'z.names' and 'unit'")
@@ -849,7 +852,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
     time <- time[which(!is.na(time))]
     if(!is.character(time)|length(time)!=1) stop("Argument 'time' must be either NULL or a character vector of length 1")
     if(length(time)>0) {
-      if(length(setdiff(time,colnames(data)))>0) stop("Unknown variable '",time,"' provided to argument 'time'")
+      if(length(setdiff(time,colnames(data)))>0) stop("Variable '",time,"' not found")
       if(length(intersect(time,unit))>0) stop("Variable '",time,"' appears in both arguments 'unit' and 'time'")
       if(length(intersect(time,y.name))>0) stop("Variable '",time,"' appears in both arguments 'y.name' and 'time'")
       if(length(intersect(time,x.names))>0) stop("Variable '",time,"' appears in both arguments 'x.names' and 'time'")
@@ -1123,7 +1126,8 @@ summary.gammadlm <- function(object, ...) {
   rownames(xTab) <- nomi
   colnames(xTab)[1:2] <- c("theta","S.E.(theta)")
   if(!is.null(object$variables$z.names)) {
-    zTab <- ttab[grep(paste0("^",object$variables$z.names),rownames(ttab)),,drop=F]
+    nomiZ <- rownames(ttab)[sapply(paste0("^",object$variables$z.names),grep,rownames(ttab))]
+    zTab <- ttab[nomiZ,,drop=F]
     } else {
     zTab <- NULL
     }
@@ -1433,7 +1437,7 @@ plot.gammadlm <- function(x, x.names=NULL, conf=0.95, max.lag=NULL, max.quantile
   xnam <- x$variables$x.names
   if(!is.null(x.names)) {
     chk0 <- setdiff(x.names,xnam)
-    #if(length(chk0)>0) warning(paste("Unknown variables: ",paste(chk0,collapse=", "),sep=""))
+    #if(length(chk0)>0) warning("Variables: ",paste(chk0,collapse=", ")," not found",call.=F)
     xOK <- setdiff(x.names,chk0)
     if(length(xOK)==0) xOK <- xnam
     } else {
@@ -1550,14 +1554,13 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, nlags=NULL, tol=1e-4, ma
     if(length(var.names)<1) stop("Argument 'var.names' must be a character vector of length 1 or greater")
     }
   auxchk <- setdiff(var.names,colnames(data))  
-  if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+  if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
   xnum <- xcat <- c()
   for(i in 1:length(var.names)) {
-    idat <- data[,var.names[i]]
-    if(is.numeric(idat)&!identical(sort(unique(na.omit(idat))),c(0,1))) {
+    if(isQuant(data[,var.names[i]])) {
       xnum <- c(xnum,var.names[i])
       } else {
-      if(sum(is.na(idat))>0) stop("Variable '",var.names[i],"' is categorical and contains missing values")
+      if(sum(is.na(data[,var.names[i]]))>0) stop("Variable '",var.names[i],"' is categorical and contains missing values")
       xcat <- c(xcat,var.names[i])
       }
     }
@@ -1565,7 +1568,7 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, nlags=NULL, tol=1e-4, ma
   unit <- unit[1]
   if(!is.null(unit)&&is.na(unit)) unit <- NULL
   if(!is.null(unit)) {
-    if(length(setdiff(unit,colnames(data)))>0) stop("Unknown variable '",unit,"' provided to argument 'unit'")
+    if(length(setdiff(unit,colnames(data)))>0) stop("Variable '",unit,"' not found")
     if(length(intersect(unit,var.names))>0) stop("Variable '",unit,"' appears in both arguments 'var.names' and 'unit'")
     if(sum(is.na(data[,unit]))>0) stop("Variable '",unit,"' provided to argument 'unit' contains missing values")
     data[,unit] <- factor(data[,unit])
@@ -1574,7 +1577,7 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, nlags=NULL, tol=1e-4, ma
   time <- time[1]
   if(!is.null(time)&&is.na(time)) time <- NULL
   if(!is.null(time)) {
-    if(length(setdiff(time,colnames(data)))>0) stop("Unknown variable '",time,"' provided to argument 'time'")
+    if(length(setdiff(time,colnames(data)))>0) stop("Variable '",time,"' not found")
     if(length(intersect(time,var.names))>0) stop("Variable '",time,"' appears in both arguments 'var.names' and 'time'")
     if(length(intersect(time,unit))>0) stop("Variable '",time,"' appears in both arguments 'unit' and 'time'")
     if(!is.numeric(data[,time])&!identical(class(data[,time]),"Date")) stop("Variable '",time,"' must be numeric or of class 'Date'")
@@ -1632,6 +1635,7 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, nlags=NULL, tol=1e-4, ma
   #
   nlags <- nlags[1]
   if(!is.null(nlags)&&is.na(nlags)) nlags <- NULL
+  if(!is.null(nlags)&&!is.numeric(nlags)) nlags <- NULL
   if(is.null(nlags)) {
     cmat <- crossCorOrder(xnum, unit=unit, data=data, maxlag=sqrt(n))
     cut <- qnorm(0.975)/sqrt(n)
@@ -1697,7 +1701,7 @@ tsEM <- function(var.names, unit=NULL, time=NULL, data, nlags=NULL, tol=1e-4, ma
       ll <- ll0
       dataI <- data_new
       } else {
-      #warning("Likelihood has decreased")
+      #warning("Likelihood has decreased",call.=F)
       ind <- ind-1
       fine <- 1  
       }
