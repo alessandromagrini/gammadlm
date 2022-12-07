@@ -7,15 +7,15 @@
   control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL,
   length.lim=NULL), quiet=FALSE)}
 \arguments{
-  \item{y.name}{Character including the name of the response variable, that must be a quantitative variable. If a vector with length greater than 1 is provided, only the first element is considered.}  
-  \item{x.names}{Character vector of length 1 or greater including the names of the explanatory variables with lags, that must be quantitative variables. If the name of the response variable is indicated in \code{x.names}, then the autoregressive lag distribution will be estimated.}
+  \item{y.name}{Character including the name of the response variable, which must be a quantitative variable. If a vector with length greater than 1 is provided, only the first element is considered.}  
+  \item{x.names}{Character vector of length 1 or greater including the names of the explanatory variables with lags, which must be quantitative variables. If the name of the response variable is indicated in \code{x.names}, then the autoregressive lag distribution will be estimated.}
   \item{z.names}{Character vector including the names of the explanatory variables without lags (optional). They may be either quantitative or qualitative variables. If \code{NULL} (the default), no explanatory variable without lags is included in the model.}
   \item{unit}{Character containing the name of the variable that identifies the units of observation. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), a single unit of observation is assumed.}
   \item{time}{Character containing the name of the time variable, which must be in numeric or date format. If a vector with length greater than 1 is provided, only the first element is considered. If \code{NULL} (the default), data are assumed to be temporally ordered.}
   \item{data}{Object of class \code{data.frame} containing the variables in the model. Variables in \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time} cannot contain missing values. It is possible to use function \link{tsEM} to impute missing values of quantitative variables.}
   \item{offset}{Named vector with non-negative real values indicating the offset for variables in \code{x.names}. If \code{offset} is of length one and has no names, the same offset is used for all variables in \code{x.names}. If a variable in \code{x.names} has no name in \code{offset} or a negative value is provided, value 0 is assumed. If the name of the response variable is indicated in \code{x.names} and a value less than 1 is provided, value 1 is assumed. Default value of \code{offset} is 0.}
-  \item{box.cox}{Named vector with non-negative real values indicating the parameters of the Box-Cox transformation (Box & Cox, 1964) for variables in \code{x.names}. If \code{box.cox} has no names and length greater than one, the same ordering as in \code{x.names} is assumed. If \code{box.cox} has no names and length equal to one, the same parameter is used for all variables in \code{x.names}. Value 0 of the parameter equates to the logarithmic transformation, while value 1 means no transformation. Default is 1 for all variables in \code{x.names}.}
-  \item{ndiff}{Named vector with non-negative integer values indicating the number of differences for variables in \code{x.names}. If \code{ndiff} has no names and length greater than one, the same ordering as in \code{x.names} is assumed. If \code{ndiff} has no names and length equal to one, the same number of differences is used for all variables in \code{x.names}. Value 0 means no differencing. Default is 0 for all variables in \code{x.names}.}
+  \item{box.cox}{Named vector with non-negative real values indicating the parameters of the Box-Cox transformation (Box & Cox, 1964) for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. If \code{box.cox} has no names and length greater than one, the same ordering as in \code{c(y.name,x.names,z.names)} is assumed. If \code{box.cox} has no names and length equal to one, the same parameter is used for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. Value 0 of the parameter equates to the logarithmic transformation, while value 1 (the default) means no transformation.}
+  \item{ndiff}{Named vector with non-negative integer values indicating the number of differences for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. If \code{ndiff} has no names and length greater than one, the same ordering as in \code{c(y.name,x.names,z.names)} is assumed. If \code{ndiff} has no names and length equal to one, the same number of differences is used for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. Value 0 (the default) means no differencing.}
   \item{add.intercept}{Logical value indicating whether the intercept should be included in the model. Default is \code{TRUE}. See 'Details'.}
   \item{control}{A list including control options for the hill climbing algorithm.
    \itemize{
@@ -39,8 +39,8 @@
   \item{\code{variables}: }{list including the names of the variables provided to arguments \code{y.name}, \code{x.names}, \code{z.names}, \code{unit} and \code{time}.}
   \item{\code{control}: }{list including control options used in parameter estimation;}
   \item{\code{unit.id}: }{list including the row names of the observations for each unit. \code{NULL} if \code{unit} is \code{NULL};}
-  \item{\code{box.cox}: }{named vector including the parameter  of the Box-Cox trasnformation for each time series;}
-  \item{\code{ndiff}: }{named vector including the order fo differencing for each time series;}
+  \item{\code{box.cox}: }{named vector including the parameter  of the Box-Cox transformation for each quantitative variable;}
+  \item{\code{ndiff}: }{named vector including the order of differencing for each quantitative variable;}
 \item{\code{lag.order}: }{lag orders of residuals and squared residuals estimated by minimizing the Bayesian Information Criterion (see 'Note'). If \code{unit} is not \code{NULL}, lag orders will be provided as a matrix with one row for each unit of observation;}
   \item{\code{data.orig}: }{data.frame including the data before Box-Cox transformation and differencing.}
   \item{\code{data.used}: }{data.frame including the data used for parameter estimation.}
@@ -84,11 +84,11 @@ The same holds for the \code{confint} method.
 }
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-G. E. P. Box, and D. R. Cox (1964). An analysis of transformations. \emph{Journal of the Royal Statistical Society}, Series B (Methodological), 26(2): 211-252. DOI: 10.1111/j.2517-6161.1964.tb00553.x
+Box, G.E.P., Cox, D.R. (1964). An analysis of transformations. \emph{Journal of the Royal Statistical Society}, Series B (Methodological), 26(2): 211-252. DOI: 10.1111/j.2517-6161.1964.tb00553.x
 
-A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46. DOI: 10.17713/ajs.v51i2.1244
+Magrini, A. (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46. DOI: 10.17713/ajs.v51i2.1244
 
-W. K. Newey, K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
+Newey, W.K., West, K.D. (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3): 703-708
 }
 \seealso{\link{unirootTest}; \link{tsEM}; \link{lagCoef}; \link{plot.gammadlm}.
 }

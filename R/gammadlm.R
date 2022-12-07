@@ -1,5 +1,6 @@
 ### DA FARE
 #
+# - differenze automatiche
 # - diagnostiche grafiche
 # - metodo predict (inversione differenze e box.cox)
 # - quandt test
@@ -226,6 +227,17 @@ kpssFun <- function(x, max.lag) {
 unirootTest <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0, max.lag=NULL) {
   var.names <- var.names[which(!is.na(var.names))]
   dataD <- preProcess(var.names=var.names, unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)
+  xcat <- c()
+  for(i in 1:length(var.names)) {
+    idat <- data[,var.names[i]]
+    if(is.numeric(idat)&!identical(sort(unique(na.omit(idat))),c(0,1))) {
+      } else {
+      xcat <- c(xcat,var.names[i])
+      }
+    }
+  var.names <- setdiff(var.names,xcat)
+  if(length(var.names)==0) stop("No quantitative variable provided to argument 'var.names'")
+  #
   if(is.null(unit)) gr <- NULL else gr <- dataD[,unit]
   max.lag <- max.lag[1]
   if(!is.numeric(max.lag)) max.lag <- NULL else max.lag <- max(0,ceiling(max.lag))
@@ -282,6 +294,16 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
     }
   auxchk <- setdiff(var.names,colnames(data))  
   if(length(auxchk)>0) stop("Unknown variable '",auxchk[1],"' in argument 'var.names'")
+  xnum <- xcat <- c()
+  for(i in 1:length(var.names)) {
+    idat <- data[,var.names[i]]
+    if(is.numeric(idat)&!identical(sort(unique(na.omit(idat))),c(0,1))) {
+      xnum <- c(xnum,var.names[i])
+      } else {
+      if(sum(is.na(idat))>0) stop("Variable '",var.names[i],"' is categorical and contains missing values")
+      xcat <- c(xcat,var.names[i])
+      }
+    }
   #
   unit <- unit[1]
   if(!is.null(unit)&&is.na(unit)) unit <- NULL
@@ -309,30 +331,30 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
   #
   if(!is.numeric(box.cox)) stop("Argument 'box.cox' must be a numeric value or vector")
   if(length(box.cox)==1) {
-    box.cox <- rep(box.cox,length(var.names))
-    names(box.cox) <- var.names
+    box.cox <- rep(box.cox,length(xnum))
+    names(box.cox) <- xnum
     } else if(is.null(names(box.cox))) {
-    box.cox <- box.cox[1:length(var.names)]
-    names(box.cox) <- var.names
+    box.cox <- box.cox[1:length(xnum)]
+    names(box.cox) <- xnum
     box.cox[which(is.na(box.cox))] <- 1
     } else {
-    box.cox <- box.cox[var.names]
-    names(box.cox) <- var.names
+    box.cox <- box.cox[xnum]
+    names(box.cox) <- xnum
     box.cox[which(is.na(box.cox))] <- 1
     }
   if(sum(box.cox<0)>0) stop("Argument 'box.cox' must contain non-negative real values")
   #
   if(!is.numeric(ndiff)) stop("Argument 'ndiff' must be a numeric value or vector")
   if(length(ndiff)==1) {
-    ndiff <- rep(ndiff,length(var.names))
-    names(ndiff) <- var.names
+    ndiff <- rep(ndiff,length(xnum))
+    names(ndiff) <- xnum
     } else if(is.null(names(ndiff))) {
-    ndiff <- ndiff[1:length(var.names)]
-    names(ndiff) <- var.names
+    ndiff <- ndiff[1:length(xnum)]
+    names(ndiff) <- xnum
     ndiff[which(is.na(ndiff))] <- 0
     } else {
-    ndiff <- ndiff[var.names]
-    names(ndiff) <- var.names
+    ndiff <- ndiff[xnum]
+    names(ndiff) <- xnum
     ndiff[which(is.na(ndiff))] <- 0
     }
   if(sum(ndiff<0|round(ndiff)!=ndiff)>0) stop("Argument 'ndiff' must contain non-negative integer values")
@@ -346,62 +368,68 @@ preProcess <- function(var.names, unit=NULL, time=NULL, data, box.cox=1, ndiff=0
     }
   # box-cox
   dataL <- data
-  for(i in 1:length(var.names)) {
-    ilam <- box.cox[var.names[i]]
-    if(ilam!=1 & sum(data[,var.names[i]]<0,na.rm=T)>0) {
-      box.cox[var.names[i]] <- ilam <- 1
-      warning("No transformation applied to variable '",var.names[i],"'",call.=F)
-      } else if(ilam==0 & sum(data[,var.names[i]]==0,na.rm=T)>0) {
-      box.cox[var.names[i]] <- ilam <- 0.5
-      warning("Box-Cox parameter 0.5, instead of 0, applied to variable '",var.names[i],"'",call.=F)
+  if(length(xnum)>0) {
+    for(i in 1:length(xnum)) {
+      ilam <- box.cox[[i]]
+      if(ilam!=1 & sum(data[,xnum[i]]<0,na.rm=T)>0) {
+        box.cox[[i]] <- ilam <- 1
+        warning("No transformation applied to variable '",xnum[i],"'",call.=F)
+        } else if(ilam==0 & sum(data[,xnum[i]]==0,na.rm=T)>0) {
+        box.cox[[i]] <- ilam <- 0.5
+        warning("Box-Cox parameter 0.5, instead of 0, applied to variable '",xnum[i],"'",call.=F)
+        }
+      dataL[,xnum[i]] <- makeBoxCox(data[,xnum[i]],ilam)
       }
-    dataL[,var.names[i]] <- makeBoxCox(data[,var.names[i]],ilam)
     }
   # differencing
-  if(is.null(unit)) {
-    n <- nrow(data)
-    for(i in 1:length(var.names)) {
-      if(ndiff[var.names[i]]>n-5) {
-        ndiff[var.names[i]] <- 0
-        warning("Differencing not applied to variable '",var.names[i],"'",call.=F)
+  if(length(xnum)>0) {
+    if(is.null(unit)) {
+      n <- nrow(data)
+      for(i in 1:length(xnum)) {
+        if(ndiff[xnum[i]]>n-5) {
+          ndiff[xnum[i]] <- 0
+          warning("Differencing not applied to variable '",xnum[i],"'",call.=F)
+          }
         }
-      }
-    dataD <- diffFun(var.names=var.names, data=dataL, ndiff=ndiff)
-    attr(dataD,"box.cox") <- box.cox
-    attr(dataD,"ndiff") <- ndiff
-    if(max(ndiff)>0) {
-      res <- dataD[setdiff(1:nrow(data),1:max(ndiff)),,drop=F]
+      dataD <- diffFun(var.names=xnum, data=dataL, ndiff=ndiff)
+      attr(dataD,"box.cox") <- box.cox
+      attr(dataD,"ndiff") <- ndiff
+      if(max(ndiff)>0) {
+        res <- dataD[setdiff(1:nrow(data),1:max(ndiff)),,drop=F]
+        } else {
+        res <- dataD
+        }
       } else {
-      res <- dataD
-      }
-    } else {
-    data[,unit] <- factor(data[,unit])
-    dataD <- dataL
-    isNA <- c()
-    gr <- levels(data[,unit])
-    val0 <- matrix(nrow=length(gr),ncol=length(var.names))
-    rownames(val0) <- gr
-    colnames(val0) <- var.names
-    n_gr <- c()
-    for(w in 1:length(gr)) {
-      ind <- which(data[,unit]==gr[w])
-      n_gr[w] <- length(ind)
-      if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
-      dataD[ind,] <- diffFun(var.names=var.names, data=dataL[ind,], ndiff=ndiff)
-      val0[w,] <- as.numeric(data[ind[1],var.names])
-      }
-    n <- max(n_gr)
-    for(i in 1:length(var.names)) {
-      if(ndiff[var.names[i]]>n-5) {
-        ndiff[var.names[i]] <- 0
-        warning("Differencing not applied to variable '",var.names[i],"'",call.=F)
+      data[,unit] <- factor(data[,unit])
+      dataD <- dataL
+      isNA <- c()
+      gr <- levels(data[,unit])
+      val0 <- matrix(nrow=length(gr),ncol=length(var.names))
+      rownames(val0) <- gr
+      colnames(val0) <- var.names
+      n_gr <- c()
+      for(w in 1:length(gr)) {
+        ind <- which(data[,unit]==gr[w])
+        n_gr[w] <- length(ind)
+        if(max(ndiff)>0) isNA <- c(isNA, ind[1]:ind[max(ndiff)])
+        dataD[ind,] <- diffFun(var.names=xnum, data=dataL[ind,], ndiff=ndiff)
+        val0[w,xnum] <- as.numeric(data[ind[1],xnum])
         }
+      n <- max(n_gr)
+      for(i in 1:length(xnum)) {
+        if(ndiff[xnum[i]]>n-5) {
+          ndiff[xnum[i]] <- 0
+          warning("Differencing not applied to variable '",xnum[i],"'",call.=F)
+          }
+        }
+      attr(dataD,"box.cox") <- box.cox
+      attr(dataD,"ndiff") <- ndiff
+      res <- dataD[setdiff(1:nrow(data),isNA),,drop=F]
       }
-    attr(dataD,"box.cox") <- box.cox
-    attr(dataD,"ndiff") <- ndiff
-    res <- dataD[setdiff(1:nrow(data),isNA),,drop=F]
+    res
+    } else {
+    dataL
     }
-  res
   }
 
 # unnormalized gamma weights (auxiliary)
@@ -1095,7 +1123,7 @@ summary.gammadlm <- function(object, ...) {
   rownames(xTab) <- nomi
   colnames(xTab)[1:2] <- c("theta","S.E.(theta)")
   if(!is.null(object$variables$z.names)) {
-    zTab <- ttab[object$variables$z.names,,drop=F]
+    zTab <- ttab[grep(paste0("^",object$variables$z.names),rownames(ttab)),,drop=F]
     } else {
     zTab <- NULL
     }

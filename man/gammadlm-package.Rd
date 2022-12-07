@@ -8,7 +8,7 @@
   Package: \tab gammadlm\cr
   Type: \tab Package\cr
   Version: \tab 0.1.1\cr
-  Date: \tab 2022-12-04\cr
+  Date: \tab 2022-12-07\cr
   License: \tab GPL-2
   }
 Let \eqn{Y} be the response variable and \eqn{X_1,\ldots,X_J} be \eqn{J} explanatory variables.
@@ -46,5 +46,5 @@ The main functions of the package are:
 }
 \author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-A. Magrini (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46. DOI: 10.17713/ajs.v51i2.1244
+Magrini, A. (2022). A hill climbing algorithm for maximum likelihood estimation of the Gamma distributed-lag model with multiple explanatory variables. \emph{Austrian Journal of Statistics}, 51(2): 40-46. DOI: 10.17713/ajs.v51i2.1244
 }

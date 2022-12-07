@@ -23,9 +23,9 @@ Missing values of quantitative variables are replaced by their conditional expec
 The optimal Box-Cox transformation (Box & Cox, 1964) for each quantitative variable is determined automatically, and the transformation is inverted before returning the imputed data.}
 %\author{Alessandro Magrini <alessandro.magrini@unifi.it>}
 \references{
-G. E. P. Box, and D. R. Cox (1964). An analysis of transformations. \emph{Journal of the Royal Statistical Society}, Series B (Methodological), 26(2): 211-252. DOI: 10.1111/j.2517-6161.1964.tb00553.x
+Box, G.E.P., Cox, D.R. (1964). An analysis of transformations. \emph{Journal of the Royal Statistical Society}, Series B (Methodological), 26(2): 211-252. DOI: 10.1111/j.2517-6161.1964.tb00553.x
 
-A. P. Dempster, N. M. Laird, and D. B. Rubin (1977). Maximum likelihood from incomplete data via the EM algorithm. \emph{Journal of the Royal Statistical Society}n Series B (Methodological), 39(1): 1-38. DOI: 10.1111/j.2517-6161.1977.tb01600.x
+Dempster, A.P., Laird, N.M., Rubin, D.B. (1977). Maximum likelihood from incomplete data via the EM algorithm. \emph{Journal of the Royal Statistical Society}n Series B (Methodological), 39(1): 1-38. DOI: 10.1111/j.2517-6161.1977.tb01600.x
 }
 %\seealso{\link{gammadlm}.}
 \examples{
