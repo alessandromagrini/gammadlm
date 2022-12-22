@@ -577,7 +577,7 @@ gammaQuantile <- function(prob, par, offset=0) {
   }
 
 # fit ols with gamma lag (auxiliary)
-gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize, add.intercept, multi.intercept) {
+gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normalize, add.intercept, multi.intercept, weights) {
   p <- length(x.names)
   if(normalize) normstr <- "" else normstr <- paste(",normalize=",normalize,sep="")
   if(is.null(unit)) {
@@ -606,7 +606,7 @@ gam_olsFit <- function(y.name, x.names, z.names, unit, par, offset, data, normal
     }
   if(length(z.names)>0) form0 <- paste(form0,"+",paste(z.names,collapse="+"),sep="")
   formOK <- formula(form0)
-  mod <- lm(formOK,data=data)
+  mod <- lm(formOK,data=data,weights=weights)
   mod$call$formula <- formOK
   #mod$call$data <- deparse(substitute(data))
   #
@@ -711,7 +711,7 @@ visitFun <- function(par, par.list) {
   }
 
 # function for hill climbing (auxiliary)
-gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by, add.intercept, multi.intercept) {
+gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visitList, gridList, sign, grid.by, add.intercept, multi.intercept, weights) {
   p <- length(x.names)
   n <- nrow(data)
   logn <- log(n)
@@ -731,7 +731,7 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
         check0 <- visitFun(ijpar, visitList)
         if(check0==0) {
           visitList <- c(visitList,list(ijpar))
-          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F, add.intercept=add.intercept, multi.intercept=multi.intercept)
+          ijm <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=ijpar, offset=offset, data=data, normalize=F, add.intercept=add.intercept, multi.intercept=multi.intercept, weights=weights)
           ijrss <- sum(ijm$residuals^2)
           testL <- c(testL,list(ijpar))
           #ijsign <- sign(ijm$coef[-1])   <------ gestire constraint segno
@@ -758,7 +758,7 @@ gam_hcFun <- function(y.name, x.names, z.names, unit, data, offset, inits, visit
       fine <- 1
       }
     }
-  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T, add.intercept=add.intercept, multi.intercept=multi.intercept)
+  modFinal <- gam_olsFit(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, par=parOK, offset=offset, data=data, normalize=T, add.intercept=add.intercept, multi.intercept=multi.intercept, weights=weights)
   list(model=modFinal,par.tested=testL)
   }
 
@@ -788,7 +788,7 @@ optFormat <- function(optList, nomi, val) {
 
 # MASTER FUNCTION
 gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
-  offset=rep(0,length(x.names)), box.cox=1, ndiff=0, add.intercept=TRUE,
+  offset=rep(0,length(x.names)), box.cox=1, ndiff=0, add.intercept=TRUE, weights=NULL,
   control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL, length.lim=NULL), quiet=FALSE) {
   #
   if(!identical(class(data),"data.frame")) stop("Argument 'data' must be a data.frame")
@@ -878,6 +878,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
   #
   #data <- data[complete.cases(data[,c(unit,time,y.name,x.names,z.names)]),]
   dataD <- preProcess(var.names=c(y.name,x.names,z.names), unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)  ## <--
+  if(!is.null(weights)&ndiff>0) weights <- weights[-(1:ndiff)]
   #
   add.intercept <- add.intercept[1]
   if(is.na(add.intercept)||(!is.logical(add.intercept)|is.null(add.intercept))) add.intercept <- T
@@ -933,7 +934,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
     }
   #
   if(!is.null(par)) {
-    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=dataD, normalize=T, add.intercept=add.intercept, multi.intercept=multi.intercept)
+    modOK <- gam_olsFit(y.name=y.name, x.names=x.names, par=par, z.names=z.names, unit=unit, offset=offset, data=dataD, normalize=T, add.intercept=add.intercept, multi.intercept=multi.intercept, weights=weights)
     } else {
     p <- length(x.names)
     if(!is.list(peak.lim)&length(peak.lim)==2) peak.lim <- optFormat(list(), x.names, peak.lim)
@@ -973,7 +974,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
               ijm <- gam_olsFit(y.name=y.name, x.names=x.names[i],
                 z.names=c(setdiff(x.names,x.names[i]),z.names),
                 unit=unit, data=dataD, offset=offset[x.names[i]],
-                par=cbind(igrid[j,]), add.intercept=add.intercept, multi.intercept=multi.intercept, normalize=F)
+                par=cbind(igrid[j,]), add.intercept=add.intercept, multi.intercept=multi.intercept, normalize=F, weights=weights)
               )
             ijrss <- sum(ijm$residuals^2)
             if(ijrss<irss) {
@@ -989,7 +990,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
           }
         gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=dataD,
           offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-          sign=sign, grid.by=grid.by, add.intercept=add.intercept, multi.intercept=multi.intercept)
+          sign=sign, grid.by=grid.by, add.intercept=add.intercept, multi.intercept=multi.intercept, weights=weights)
         modOK <- gs0$model
         if(quiet==F) {
           cat('\r',"Explored ",length(gs0$par.tested)," valid models       ",sep="")
@@ -1003,7 +1004,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
         if(!is.null(ini0)) {
           gs0 <- gam_hcFun(y.name=y.name, x.names=x.names, z.names=z.names, unit=unit, data=dataD,
             offset=offset, inits=ini0, visitList=visitList, gridList=gridList,
-            sign=sign, grid.by=grid.by, add.intercept=add.intercept, multi.intercept=multi.intercept)
+            sign=sign, grid.by=grid.by, add.intercept=add.intercept, multi.intercept=multi.intercept, weights=weights)
           } else {
           gs0 <- NULL
           stopped <- 2

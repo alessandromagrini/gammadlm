@@ -3,7 +3,7 @@
 \title{Estimation of a Gamma distributed-lag model}
 \description{Maximum likelihood estimation of a Gamma distributed-lag model with multiple explanatory variables using the hill climbing algorithm. Data may have a panel structure, even unbalanced.}
 \usage{gammadlm(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
-  offset=rep(0,length(x.names)), box.cox=1, ndiff=0, add.intercept=TRUE,
+  offset=rep(0,length(x.names)), box.cox=1, ndiff=0, add.intercept=TRUE, weights=NULL,
   control=list(nstart=NULL, delta.lim=NULL, lambda.lim=NULL, peak.lim=NULL,
   length.lim=NULL), quiet=FALSE)}
 \arguments{
@@ -17,6 +17,7 @@
   \item{box.cox}{Named vector with non-negative real values indicating the parameters of the Box-Cox transformation (Box & Cox, 1964) for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. If \code{box.cox} has no names and length greater than one, the same ordering as in \code{c(y.name,x.names,z.names)} is assumed. If \code{box.cox} has no names and length equal to one, the same parameter is used for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. Value 0 of the parameter equates to the logarithmic transformation, while value 1 (the default) means no transformation.}
   \item{ndiff}{Named vector with non-negative integer values indicating the number of differences for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. If \code{ndiff} has no names and length greater than one, the same ordering as in \code{c(y.name,x.names,z.names)} is assumed. If \code{ndiff} has no names and length equal to one, the same number of differences is used for variable \code{y.name}, variables in \code{x.names} and quantitative variables in \code{z.names}. Value 0 (the default) means no differencing.}
   \item{add.intercept}{Logical value indicating whether the intercept should be included in the model. Default is \code{TRUE}. See 'Details'.}
+  \item{weights}{Weights to be used for weighted least squares estimation. If \code{NULL} (the default), unweighted least squares estimation is performed.}
   \item{control}{A list including control options for the hill climbing algorithm.
    \itemize{
     \item{\code{nstart}: }{positive integer value indicating the number of restarts. If equal to 1 or \code{NULL} (the default), shape parameters are initialized for one explanatory variable at a time based on OLS-grid search.}
