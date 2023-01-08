@@ -878,7 +878,7 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
   #
   #data <- data[complete.cases(data[,c(unit,time,y.name,x.names,z.names)]),]
   dataD <- preProcess(var.names=c(y.name,x.names,z.names), unit=unit, time=time, data=data, box.cox=box.cox, ndiff=ndiff)  ## <--
-  if(!is.null(weights)&ndiff>0) weights <- weights[-(1:ndiff)]
+  if(!is.null(weights)&max(ndiff)>0) weights <- weights[-(1:max(ndiff))]
   #
   add.intercept <- add.intercept[1]
   if(is.na(add.intercept)||(!is.logical(add.intercept)|is.null(add.intercept))) add.intercept <- T
