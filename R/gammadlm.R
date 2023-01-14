@@ -1126,9 +1126,9 @@ summary.gammadlm <- function(object, ...) {
   xTab <- ttab[(n_alpha+1):(n_alpha+length(nomi)),]
   rownames(xTab) <- nomi
   colnames(xTab)[1:2] <- c("theta","S.E.(theta)")
-  if(!is.null(object$variables$z.names)) {
-    nomiZ <- rownames(ttab)[sapply(paste0("^",object$variables$z.names),grep,rownames(ttab))]
-    zTab <- ttab[nomiZ,,drop=F]
+  auxn <- n_alpha+length(object$variables$x.names)
+  if(nrow(ttab)>auxn) {  
+    zTab <- ttab[(auxn+1):nrow(ttab),,drop=F]
     } else {
     zTab <- NULL
     }
