@@ -804,6 +804,9 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
   if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
   #
   if(missing(x.names)) stop("Argument 'x.names' is missing")
+  auxchk <- setdiff(x.names,colnames(data))
+  if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
+  #if(y.name%in%x.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'x.names'")
   if(!is.character(x.names)) {
     stop("Argument 'x.names' must be a character vector")
     } else {
@@ -813,9 +816,6 @@ gammadlm <- function(y.name, x.names, z.names=NULL, unit=NULL, time=NULL, data,
       if(isQuant(data[,x.names[i]])==F) stop("Variable '",x.names[i],"' is not quantitative")
       }
     }
-  auxchk <- setdiff(x.names,colnames(data))
-  if(length(auxchk)>0) stop("Variable '",auxchk[1],"' not found")
-  #if(y.name%in%x.names) stop("Variable '",y.name,"' appears in both arguments 'y.name' and 'x.names'")
   #
   if(!is.null(z.names)) {
     z.names <- z.names[which(!is.na(z.names))]
